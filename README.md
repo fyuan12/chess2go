@@ -8,7 +8,7 @@ Marker tracking: we need more than one ArUco marker to make sure all 3D AR rende
 
 2. Human hand geture detection in 3D space
 
-Class: HandDetector
+We use Google Mediapipe library to do the hand tracking. 
 
 3. A chess engine to keep track of the game state
 
