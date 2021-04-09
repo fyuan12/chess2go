@@ -1,22 +1,19 @@
-# ee631-final-project
+ECEN 631 Project: Chess2Go (An Augmented Reality Chess Game)
 
-Our final project has three main components:
+Our project has three main components:
 
-1. 3D AR rendering of a chess board and pieces
+### 1. 3D AR rendering of a chess board and pieces
 
 Marker tracking: we need more than one ArUco marker to make sure all 3D AR rendering remain visible during a user's hand movement.
 
-2. Human hand geture detection in 3D space
+### 2. Human hand geture detection in 3D space
 
 We use Google Mediapipe library to do the hand tracking. 
 
-3. A chess engine to keep track of the game state
-
-Class: a chess game
+### 3. A chess engine to keep track of the game state
 
 
-
-Project milestones
+## Project milestones
 
 * Milestone 1: 
 
