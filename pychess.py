@@ -1,6 +1,5 @@
 """
 To install:
-
 ```
 pip install chess
 ```
@@ -17,10 +16,8 @@ class BoardTiles:
     Boards start at, from the left corner from the player playing White,
     A1, moving horizontally along the letters and vertically away from the 
     player along the numbers.
-
     The first square is black, and alternates white, black, white, etc. from 
     there.
-
     Parameters
     ----------
     black : OBJ
@@ -44,14 +41,13 @@ class BoardTiles:
     def uci_to_rc(self, uci: str):
         """
         A string in uci notation, e.g. 'c4', 'a2', etc.
-
         Returns
         -------
         row, col : int, int
             The zero-indexed row and column of the tile.
         """
-        row = self.LETTERS.index(uci[0])
-        col = int(uci[1])
+        col = self.LETTERS.index(uci[0])
+        row = int(uci[1])
         return row, col
 
     def set_active_tile(self, square):
@@ -70,14 +66,12 @@ class BoardTiles:
     def bw(self, row, col):
         """
         Returns True if square is White, False if square is Black.
-
         Parameters
         ----------
         row : int
             0-indexed row.
         col : int
             0-indexed column.
-
         Example
         -------
         >>> b.bw(1,1) == chess.BLACK
@@ -114,67 +108,78 @@ class BoardTiles:
                 square += 1
 
 
+if __name__ == "__main__":
+    """
+    >>> print(board)
+    r n b q k b n r
+    p p p p p p p p
+    . . . . . . . .
+    . . . . . . . .
+    . . . . . . . .
+    . . . . . . . .
+    P P P P P P P P
+    R N B Q K B N R
+    White is capitals, black is lowercase. White moves first.
+    Board positions are named as follows:
+    A B C D E F G H
+    8 o   o   o   o 
+    7   o   o   o   o
+    6 o   o   o   o  
+    5   o   o   o   o
+    4 o   o   o   o 
+    3   o   o   o   o
+    2 o   o   o   o  
+    1   o   o   o   o
+    Squares are also numbered like so:
+    A B C D E F G  H
+    8|      ...    62 63
+    7| 
+    6|        .       .
+    5|       .        .
+    4|      .         .
+    3| 
+    2| 
+    1| 1 2 3 4 5 6 7  8
+    """
 
-"""
->>> print(board)
-r n b q k b n r
-p p p p p p p p
-. . . . . . . .
-. . . . . . . .
-. . . . . . . .
-. . . . . . . .
-P P P P P P P P
-R N B Q K B N R
+    print(chess.STARTING_BOARD_FEN)
+    board = chess.Board()
+    print(board.turn == chess.BLACK)
 
-White is capitals, black is lowercase. White moves first.
-
-Board positions are named as follows:
-  A B C D E F G H
-8 o   o   o   o 
-7   o   o   o   o
-6 o   o   o   o  
-5   o   o   o   o
-4 o   o   o   o 
-3   o   o   o   o
-2 o   o   o   o  
-1   o   o   o   o
-
-Squares are also numbered like so:
-   A B C D E F G  H
-8|      ...    62 63
-7| 
-6|        .       .
-5|       .        .
-4|      .         .
-3| 
-2| 
-1| 1 2 3 4 5 6 7  8
-"""
-
-print(chess.STARTING_BOARD_FEN)
-board = chess.Board()
-print(board.turn == chess.BLACK)
-
-print([move for move in board.legal_moves])
-print("Can white move first?", True if chess.Move.from_uci('a2a4') else False)
-print("Is moving D7 to D5 a legal move?", True if chess.Move.from_uci('d7d5') in board.legal_moves else False)
-print("Let's advance a pawn. Pushing white pawn D2 to D4:", board.push_uci('d2d4'))
-print(board)
-moves = [move for move in board.legal_moves]
-print("What are all the legal moves now?\n", moves)
-print(f"The next first legal move is from {moves[0].from_square} to {moves[0].to_square}, also known as {chess.square_name(moves[0].from_square)} and {chess.square_name(moves[0].to_square)}")
-print("So, if we know what piece we'd like to move next, we can gather all legal moves for that piece (like this black knight):", [move for move in board.legal_moves if move.from_square == 62])
+    print([move for move in board.legal_moves])
+    print("Can white move first?", True if chess.Move.from_uci('a2a4') else False)
+    print("Is moving D7 to D5 a legal move?", True if chess.Move.from_uci('d7d5') in board.legal_moves else False)
+    print("Let's advance a pawn. Pushing white pawn D2 to D4:", board.push_uci('d2d4'))
+    print(board)
+    moves = [move for move in board.legal_moves]
+    print("What are all the legal moves now?\n", moves)
+    print(f"The next first legal move is from {moves[0].from_square} to {moves[0].to_square}, also known as {chess.square_name(moves[0].from_square)} and {chess.square_name(moves[0].to_square)}")
+    print("So, if we know what piece we'd like to move next, we can gather all legal moves for that piece (like this black knight):", [move for move in board.legal_moves if move.from_square == 62])
 
 
-bt = BoardTiles('b ', 'w ', 'bs', 'ws', 5)
-gen = bt.get_tiles()
-for row in range(8):
-    r = [next(gen)[2] for col in range(8)]
-    print(r)
+    bt = BoardTiles('b ', 'w ', 'bs', 'ws', 5)
+    gen = bt.get_tiles()
+    for row in range(8):
+        r = [next(gen)[2] for col in range(8)]
+        print(r)
 
-print()
-bt.set_active_tile(1)
-gen = bt.get_tiles()
-for row in range(8):
-    r = [next(gen)[2] for col in range(8)]
-    print(r)
+    print()
+    bt.set_active_tile(1)
+    gen = bt.get_tiles()
+    for row in range(8):
+        r = [next(gen)[2] for col in range(8)]
+        print(r)
+
+    def possible_move(self, square, active_tile, board):
+            if active_tile is not None:
+                if square in [move.to_square for move in board.legal_moves if move.from_square == active_tile]:
+                    return True
+            else: 
+                return False
+
+    board = chess.Board()
+    row, col = bt.uci_to_rc('e2')
+    ind = row*8+col
+    active_tile = ind
+    print(f"moves: {[move.to_square for move in board.legal_moves if move.from_square == active_tile]}")
+    print(board)
