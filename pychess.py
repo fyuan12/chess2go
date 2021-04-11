@@ -36,8 +36,8 @@ class BoardTiles:
         self._white = white
         self._black_sel = black_selectable
         self._white_sel = white_selectable
-        self.board_obj = np.array([[black, white] * 4,
-                               [white, black] * 4] * 4)
+        # self.board_obj = np.array([[black, white] * 4,
+        #                        [white, black] * 4] * 4)
         self.dist = dist
         self.active_tile = None
 
@@ -70,13 +70,29 @@ class BoardTiles:
     def bw(self, row, col):
         """
         Returns True if square is White, False if square is Black.
+
+        Parameters
+        ----------
+        row : int
+            0-indexed row.
+        col : int
+            0-indexed column.
+
+        Example
+        -------
+        >>> b.bw(1,1) == chess.BLACK
+        True
         """
         if row % 2: # row starts with white
             if col % 2:
-                return True
+                return chess.BLACK
+            else:
+                return chess.WHITE
         else: # row starts with black
             if col % 2:
-                return True
+                return chess.WHITE
+            else:
+                return chess.BLACK
 
     def get_tiles(self):
         square = 0
@@ -85,12 +101,16 @@ class BoardTiles:
                 dx = row * self.dist
                 dy = col * self.dist
                 if self.possible_move(square):
-                    if self.board_obj[row, col] == self._black:
+                    if self.bw(row, col) == chess.BLACK:
                         yield dx, dy, self._black_sel
                     else:
                         yield dx, dy, self._white_sel
                 else:
-                    yield dx, dy, self.board_obj[row, col]
+                    if self.bw(row, col) == chess.BLACK:
+                        yield dx, dy, self._black
+                    else:
+                        yield dx, dy, self._white
+                    # yield dx, dy, self.board_obj[row, col]
                 square += 1
 
 
@@ -144,3 +164,17 @@ moves = [move for move in board.legal_moves]
 print("What are all the legal moves now?\n", moves)
 print(f"The next first legal move is from {moves[0].from_square} to {moves[0].to_square}, also known as {chess.square_name(moves[0].from_square)} and {chess.square_name(moves[0].to_square)}")
 print("So, if we know what piece we'd like to move next, we can gather all legal moves for that piece (like this black knight):", [move for move in board.legal_moves if move.from_square == 62])
+
+
+bt = BoardTiles('b ', 'w ', 'bs', 'ws', 5)
+gen = bt.get_tiles()
+for row in range(8):
+    r = [next(gen)[2] for col in range(8)]
+    print(r)
+
+print()
+bt.set_active_tile(1)
+gen = bt.get_tiles()
+for row in range(8):
+    r = [next(gen)[2] for col in range(8)]
+    print(r)
