@@ -8,6 +8,17 @@ import numpy as np
 import pickle
 from objloader import *
 from pathlib import Path
+import chess
+
+import time
+import queue
+from hand_tracker import HandTracker
+MAX_PINCH_DIST = 100
+p_time = 0
+c_time = 0
+tracker = HandTracker(min_detect_confidence=0.7)
+
+board = chess.Board()
 
 INVERSE_MATRIX = np.array([ [ 1.0, 1.0, 1.0, 1.0],
                             [-1.0,-1.0,-1.0,-1.0],
@@ -16,18 +27,15 @@ INVERSE_MATRIX = np.array([ [ 1.0, 1.0, 1.0, 1.0],
 
 texture_id = 0
 thread_quit = 0
-X_AXIS = 0.0
-Y_AXIS = 0.0
-Z_AXIS = 0.0
-DIRECTION = 1
 current_view_matrix = np.array([])
 new_frame = np.array([])
 white_pieces = {}
-zoom = -20.0
+zoom = -16.5
 aruco_d = 5.5
 aruco_x = 0
 aruco_y = 0
 aruco_z = 0
+last_corners = []
 
 # Set the needed parameters to find the refined corners
 winSize = (5, 5)
@@ -35,7 +43,6 @@ zeroZone = (-1, -1)
 criteria = (cv.TERM_CRITERIA_EPS + cv.TermCriteria_COUNT, 40, 0.001)
 
 cap = cv.VideoCapture(1)
-global mtx, dist, newcameramtx, roi
 _, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
 new_frame = cap.read()[1]
 h,  w = new_frame.shape[:2]
@@ -66,7 +73,8 @@ def init_gl(width, height):
     def load_item(item):
         return OBJ(item, swapyz=True)
     
-    chessboard = OBJ("Chessboard/Chessboard.obj", swapyz=False)
+    # chessboard = OBJ("Chessboard/Chessboard.obj", swapyz=False)
+    chessboard = OBJ("Tiles/LightRedTile.obj", swapyz=False)
 
     # for item in Path("White").glob("*.obj"):
     #     if "King" in item.name:
@@ -111,6 +119,27 @@ def track(frame):
     global aruco_x
     global aruco_y
     global aruco_z
+    global last_corners
+    global p_time
+    global c_time
+
+    hand_frame = frame.copy()
+    found, hand_frame = tracker.find_hands(hand_frame, selfie=False, draw=False)
+    # if at least one hand is found
+    if found:
+        detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=MAX_PINCH_DIST, draw=True)
+        if detected:
+            print('A pinch is detected:', pinch_pt) # the x,y coordinate of the pinch point
+        else:
+            print('A pinch is not detected.')
+    
+    
+    # calculate and output fps
+    c_time = time.time()
+    fps = 1/(c_time - p_time)
+    p_time = c_time
+    cv.putText(hand_frame, str(int(fps)), (10, 70), cv.FONT_HERSHEY_PLAIN, 3,
+                (255, 0, 255), 3)
 
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY) 
     gray = cv.GaussianBlur(gray, winSize, 0)
@@ -121,50 +150,30 @@ def track(frame):
                                               parameters=parameters,
                                               cameraMatrix=mtx,
                                               distCoeff=dist)
-    # if len(corners) > 0:
-    #     corners = cv.cornerSubPix(gray, np.array(corners), winSize, zeroZone, criteria)
-    #     print(type(corners))
+
     if np.all(ids is not None):  # If there are markers found by detector
-        # print(ids)
-        for i in range(0, len(ids)):  # Iterate in markers
-            # Estimate pose of each marker and return the values rvec and tvec
+        last_corners = corners
 
-            rvec, tvec, markerPoints = cv.aruco.estimatePoseSingleMarkers(corners[i], aruco_d, mtx, dist)
-            rmtx = cv.Rodrigues(rvec)[0]
+    if last_corners:
+        rvec, tvec, markerPoints = cv.aruco.estimatePoseSingleMarkers(last_corners[0], aruco_d, mtx, dist)
+        rmtx = cv.Rodrigues(rvec)[0]
+        view_matrix = np.array([[rmtx[0][0],rmtx[0][1],rmtx[0][2],tvec[0,0,0]],
+                                [rmtx[1][0],rmtx[1][1],rmtx[1][2],tvec[0,0,1]],
+                                [rmtx[2][0],rmtx[2][1],rmtx[2][2],tvec[0,0,2]],
+                                [0.0       ,0.0       ,0.0       ,1.0    ]])
+        view_matrix = view_matrix * INVERSE_MATRIX
+        view_matrix = np.transpose(view_matrix)
+        glPushMatrix()
+        glLoadMatrixd(view_matrix)
+        
+        glTranslate(aruco_x, aruco_y, aruco_z)
+        glRotate(90, 1, 0, 0)
+        glRotate(90, 0, 1, 0)
 
-            view_matrix = np.array([[rmtx[0][0],rmtx[0][1],rmtx[0][2],tvec[0,0,0]],
-                                    [rmtx[1][0],rmtx[1][1],rmtx[1][2],tvec[0,0,1]],
-                                    [rmtx[2][0],rmtx[2][1],rmtx[2][2],tvec[0,0,2]],
-                                    [0.0       ,0.0       ,0.0       ,1.0    ]])
-            view_matrix = view_matrix * INVERSE_MATRIX
-            view_matrix = np.transpose(view_matrix)
-            glPushMatrix()
-            glLoadMatrixd(view_matrix)
-            
-            glTranslate(aruco_x, aruco_y, aruco_z)
-            glRotate(90, 1, 0, 0)
-            glRotate(90, 0, 1, 0)
+        chessboard.render()
+        glPopMatrix()
 
-            
-            vals = ['pawn', 'knight', 'king', 'rook', 'bishop', 'queen']
-            # if ids[i] == 1:
-            # print(vals[i])
-            # white_pieces['queen'].render()
-            # elif ids[i] == 2:
-            #     white_pieces['knight'].render()
-            # elif ids[i] == 3:
-            #     white_pieces['king'].render()
-            # else:
-            #     obj.render()
-            chessboard.render()
-
-            glPopMatrix()
-
-            # #(rvec - tvec).any()  # get rid of that nasty numpy value array error
-            # cv.aruco.drawDetectedMarkers(frame, corners)  # Draw A square around the markers
-            # cv.aruco.drawAxis(frame, mtx, dist, rvec, tvec, 0.05)  # Draw Axis
-
-    cv.imshow('frame', frame)
+    cv.imshow('frame', hand_frame)
 
 # Update and undistort each camera frame
 def update():
@@ -202,7 +211,7 @@ def draw_gl_scene():
     # create texture
     glBindTexture(GL_TEXTURE_2D, texture_id)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+    # glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ix, iy, 0, GL_RGBA, GL_UNSIGNED_BYTE, tx_image)
     
 
