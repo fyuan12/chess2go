@@ -26,7 +26,7 @@ class BoardTiles:
     white_selectable : OBJ
     """
     LETTERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
-    NUMBERS = [1, 2, 3, 4, 5, 5, 6, 7, 8]
+    NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8]
     def __init__(self, black, white, black_selectable, white_selectable, dist):
         self.board = chess.Board()
         self._black = black
