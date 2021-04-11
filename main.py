@@ -9,6 +9,7 @@ import pickle
 from objloader import *
 from pathlib import Path
 import chess
+from pychess import BoardTiles
 
 import time
 import queue
@@ -17,8 +18,9 @@ MAX_PINCH_DIST = 100
 p_time = 0
 c_time = 0
 tracker = HandTracker(min_detect_confidence=0.7)
+start_pinch = 0
 
-board = chess.Board()
+board = 0 #initialize a board object
 
 INVERSE_MATRIX = np.array([ [ 1.0, 1.0, 1.0, 1.0],
                             [-1.0,-1.0,-1.0,-1.0],
@@ -29,12 +31,12 @@ texture_id = 0
 thread_quit = 0
 current_view_matrix = np.array([])
 new_frame = np.array([])
-white_pieces = {}
 zoom = -16.5
 aruco_d = 5.5
-aruco_x = 0
-aruco_y = 0
+aruco_x = 9
+aruco_y = -6
 aruco_z = 0
+c_d = 1
 last_corners = []
 
 # Set the needed parameters to find the refined corners
@@ -56,9 +58,7 @@ def init():
 # Initialize opengl frame and load in .obj files into opengl
 def init_gl(width, height):
     global texture_id
-    global white_pieces
-    global black_pieces
-    global chessboard
+    global board
 
     glClearColor(0.0, 0.0, 0.0, 0.0)
     glClearDepth(1.0)
@@ -73,36 +73,52 @@ def init_gl(width, height):
     def load_item(item):
         return OBJ(item, swapyz=True)
     
-    # chessboard = OBJ("Chessboard/Chessboard.obj", swapyz=False)
-    chessboard = OBJ("Tiles/LightRedTile.obj", swapyz=False)
+    tiles = {}
+    for item in Path("Tiles").glob("*.obj"):
+        if "Black" in item.name:
+            tiles["black"] = OBJ(item)
+        elif "White" in item.name:
+            tiles["white"] = OBJ(item)
+        elif "Dark" in item.name:
+            tiles["dark"] = OBJ(item)
+        elif "Light" in item.name:
+            tiles["light"] = OBJ(item)
+    print("loaded tiles")
 
-    # for item in Path("White").glob("*.obj"):
-    #     if "King" in item.name:
-    #         white_pieces["king"] = load_item(item)
-    #     elif "Queen" in item.name:
-    #         white_pieces["queen"] = load_item(item)
-    #     elif "Rook" in item.name:
-    #         white_pieces["rook"] = load_item(item)
-    #     elif "Bishop" in item.name:
-    #         white_pieces["bishop"] = load_item(item)
-    #     elif "Pawn" in item.name:
-    #         white_pieces["pawn"] = load_item(item)
-    #     elif "Knight" in item.name:
-    #         white_pieces["knight"] = load_item(item) 
+    white_pieces = {}
+    for item in Path("White").glob("*.obj"):
+        if "King" in item.name:
+            white_pieces["king"] = load_item(item)
+        elif "Queen" in item.name:
+            white_pieces["queen"] = load_item(item)
+        elif "Rook" in item.name:
+            white_pieces["rook"] = load_item(item)
+        elif "Bishop" in item.name:
+            white_pieces["bishop"] = load_item(item)
+        elif "Pawn" in item.name:
+            white_pieces["pawn"] = load_item(item)
+        elif "Knight" in item.name:
+            white_pieces["knight"] = load_item(item) 
+    print("loaded white pieces")
     
-    # for item in Path("Black").glob("*.obj"):
-    #     if "King" in item.name:
-    #         black_pieces["king"] = load_item(item)
-    #     elif "Queen" in item.name:
-    #         black_pieces["queen"] = load_item(item)
-    #     elif "Rook" in item.name:
-    #         black_pieces["rook"] = load_item(item)
-    #     elif "Bishop" in item.name:
-    #         black_pieces["bishop"] = load_item(item)
-    #     elif "Pawn" in item.name:
-    #         black_pieces["pawn"] = load_item(item)
-    #     elif "Knight" in item.name:
-    #         black_pieces["knight"] = load_item(item) 
+    black_pieces = {}
+    for item in Path("Black").glob("*.obj"):
+        if "King" in item.name:
+            black_pieces["king"] = load_item(item)
+        elif "Queen" in item.name:
+            black_pieces["queen"] = load_item(item)
+        elif "Rook" in item.name:
+            black_pieces["rook"] = load_item(item)
+        elif "Bishop" in item.name:
+            black_pieces["bishop"] = load_item(item)
+        elif "Pawn" in item.name:
+            black_pieces["pawn"] = load_item(item)
+        elif "Knight" in item.name:
+            black_pieces["knight"] = load_item(item) 
+
+    print("loaded the black pieces")
+
+    board = BoardTiles(tiles["black"], tiles["white"], tiles["dark"], tiles["light"], black_pieces, white_pieces, 2)
         
     # assign texture
     glEnable(GL_TEXTURE_2D)
@@ -112,9 +128,6 @@ def init_gl(width, height):
 def track(frame):
     global mtx
     global dist
-    global white_pieces
-    global black_pieces
-    global chessboard
     global aruco_d
     global aruco_x
     global aruco_y
@@ -122,16 +135,21 @@ def track(frame):
     global last_corners
     global p_time
     global c_time
+    global c_d
+    global start_pinch
 
     hand_frame = frame.copy()
-    found, hand_frame = tracker.find_hands(hand_frame, selfie=False, draw=False)
-    # if at least one hand is found
-    if found:
-        detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=MAX_PINCH_DIST, draw=True)
-        if detected:
-            print('A pinch is detected:', pinch_pt) # the x,y coordinate of the pinch point
-        else:
-            print('A pinch is not detected.')
+    # found, hand_frame = tracker.find_hands(hand_frame, selfie=False, draw=False)
+    # # if at least one hand is found
+    # if found:
+    #     detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=MAX_PINCH_DIST, draw=True)
+    #     if detected:
+    #         c_time = time.time()
+    #         if 
+    #         print('A pinch is detected:', pinch_pt) # the x,y coordinate of the pinch point
+    #     else:
+    #         start_pinch == 0
+    #         print('A pinch is not detected.')
     
     
     # calculate and output fps
@@ -155,6 +173,7 @@ def track(frame):
         last_corners = corners
 
     if last_corners:
+        # rvec, tvec, markerPoints = cv.aruco.estimatePoseSingleMarkers(last_corners[0], aruco_d, mtx, dist)
         rvec, tvec, markerPoints = cv.aruco.estimatePoseSingleMarkers(last_corners[0], aruco_d, mtx, dist)
         rmtx = cv.Rodrigues(rvec)[0]
         view_matrix = np.array([[rmtx[0][0],rmtx[0][1],rmtx[0][2],tvec[0,0,0]],
@@ -163,15 +182,32 @@ def track(frame):
                                 [0.0       ,0.0       ,0.0       ,1.0    ]])
         view_matrix = view_matrix * INVERSE_MATRIX
         view_matrix = np.transpose(view_matrix)
-        glPushMatrix()
-        glLoadMatrixd(view_matrix)
-        
-        glTranslate(aruco_x, aruco_y, aruco_z)
-        glRotate(90, 1, 0, 0)
-        glRotate(90, 0, 1, 0)
 
-        chessboard.render()
-        glPopMatrix()
+        # Draw Chessboard
+        for dx, dy, tile in board.get_tiles():
+            glPushMatrix()
+            glLoadMatrixd(view_matrix)
+            
+            glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
+            glRotate(90, 1, 0, 0)
+            glRotate(90, 0, 1, 0)
+
+            tile.render()
+            glPopMatrix()
+
+        # Draw Pieces
+        
+        for dx, dy, piece in board.get_pieces():
+            glPushMatrix()
+            glLoadMatrixd(view_matrix)
+            
+            glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
+            glRotate(90, 1, 0, 0)
+            glRotate(90, 0, 1, 0)
+
+            piece.render()
+            glPopMatrix()
+
 
     cv.imshow('frame', hand_frame)
 
@@ -242,6 +278,9 @@ def key_pressed(key, x, y):
     global aruco_x
     global aruco_y
     global aruco_z
+    global c_d
+    global board
+
     key = key.decode("utf-8") 
     if key == "q":
         thread_quit = 1
@@ -278,6 +317,46 @@ def key_pressed(key, x, y):
         if aruco_d <= 0:
             aruco_d = 0.001
         print(f"aruco_d: {aruco_d}")
+    elif key == ";":
+        c_d += 0.01
+        print(f"aruco_d: {c_d}")
+    elif key == "'":
+        c_d -= 0.01
+        if c_d <= 0:
+            c_d = 0.01
+        print(f"aruco_d: {c_d}")
+    elif key == "t":
+        row, col = board.uci_to_rc('e2')
+        print(f"row: {row} col: {col}")
+        ind = (row)*8+(col)
+        print(f"ind: {ind}")
+        board.set_active_tile(ind)
+        print(f"pos: {str(board.board)}")
+    elif key == "y":
+        board.board.push_uci('e2e4')
+        row, col = board.uci_to_rc('e7')
+        print(f"row: {row} col: {col}")
+        ind = (row)*8+(col)
+        print(f"ind: {ind}")
+        board.set_active_tile(ind)
+        print(f"pos: {str(board.board)}")
+    elif key == "u":
+        board.board.push_uci('e7e5')
+        row, col = board.uci_to_rc('f1')
+        print(f"row: {row} col: {col}")
+        ind = (row)*8+(col)
+        print(f"ind: {ind}")
+        board.set_active_tile(ind)
+        print(f"pos: {str(board.board)}")
+    elif key == "i":
+        board.board.push_uci('f1b5')
+        row, col = board.uci_to_rc('c7')
+        print(f"row: {row} col: {col}")
+        ind = (row)*8+(col)
+        print(f"ind: {ind}")
+        board.set_active_tile(ind)
+        print(f"pos: {str(board.board)}")
+
 
 
 def run():
@@ -285,7 +364,7 @@ def run():
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
     glutInitWindowSize(640, 480)
     glutInitWindowPosition(800, 400)
-    window = glutCreateWindow('My and Cube')
+    window = glutCreateWindow('OPENGL Frame')
     glutDisplayFunc(draw_gl_scene)
     glutIdleFunc(draw_gl_scene)
     glutKeyboardFunc(key_pressed)

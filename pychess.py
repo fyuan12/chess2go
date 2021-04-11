@@ -117,7 +117,8 @@ class BoardTiles:
             for piece in locs[row].split():
                 piecename = self.piece_by_identifier(piece.lower())
                 if piecename is None:
-                    yield None, None, None
+                    col += 1
+                    continue
                 dx = (7-row) * self.dist
                 dy = col * self.dist
                 if piece.isupper():
