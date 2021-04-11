@@ -47,7 +47,7 @@ class BoardTiles:
             The zero-indexed row and column of the tile.
         """
         col = self.LETTERS.index(uci[0])
-        row = int(uci[1])
+        row = self.NUMBERS.index(int(uci[1]))
         return row, col
 
     def set_active_tile(self, square):
