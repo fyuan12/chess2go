@@ -27,12 +27,15 @@ class BoardTiles:
     """
     LETTERS = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
     NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8]
-    def __init__(self, black, white, black_selectable, white_selectable, dist):
+    def __init__(self, black, white, black_selectable, white_selectable, 
+                 black_pieces, white_pieces, dist):
         self.board = chess.Board()
         self._black = black
         self._white = white
         self._black_sel = black_selectable
         self._white_sel = white_selectable
+        self.black_pieces = black_pieces
+        self.white_pieces = white_pieces
         # self.board_obj = np.array([[black, white] * 4,
         #                        [white, black] * 4] * 4)
         self.dist = dist
@@ -106,6 +109,39 @@ class BoardTiles:
                         yield dx, dy, self._white
                     # yield dx, dy, self.board_obj[row, col]
                 square += 1
+
+    def get_pieces(self):
+        locs = str(self.board).splitlines()
+        for row in range(7, -1, -1):
+            col = 0
+            for piece in locs[row].split():
+                piecename = self.piece_by_identifier(piece.lower())
+                if piecename is None:
+                    yield None, None, None
+                dx = (7-row) * self.dist
+                dy = col * self.dist
+                if piece.isupper():
+                    yield dx, dy, self.white_pieces[piecename]
+                else:
+                    yield dx, dy, self.black_pieces[piecename]
+                col += 1
+
+    def piece_by_identifier(self, identifier):
+        if identifier == 'r':
+            return 'rook'
+        elif identifier == 'n':
+            return 'knight'
+        elif identifier == 'b':
+            return 'bishop'
+        elif identifier == 'q':
+            return 'queen'
+        elif identifier == 'k':
+            return 'king'
+        elif identifier == 'p':
+            return 'pawn'
+        elif identifier == '.':
+            return None
+
 
 
 if __name__ == "__main__":
