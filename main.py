@@ -31,12 +31,21 @@ thread_quit = 0
 current_view_matrix = np.array([])
 new_frame = np.array([])
 zoom = -16.5
-aruco_d = 5.5
-aruco_x = 6.5
-aruco_y = -10
+aruco_d = 6.8
+aruco_x = -4.0
+aruco_y = -5.0
 aruco_z = 0
 c_d = 1
 last_corners = []
+arucopts = np.array([[1,0],
+                    [1,1],
+                    [0,1],
+                    [0,0]])
+chesspts = []
+for my in range(9):
+    for x in range(9):
+        chesspts.append([x, -my - 1, 1])
+chesspts = np.array(chesspts)
 
 # Set the needed parameters to find the refined corners
 winSize = (5, 5)
@@ -44,12 +53,12 @@ zeroZone = (-1, -1)
 criteria = (cv.TERM_CRITERIA_EPS + cv.TermCriteria_COUNT, 40, 0.001)
 
 cap = cv.VideoCapture(1)
-# _, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
-with np.load('cap_int_params.npz') as data:
-    mtx, dist = data['arr_0'], data['arr_1']
+_, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
+# with np.load('cap_int_params.npz') as data:
+#     mtx, dist = data['arr_0'], data['arr_1']
 
 new_frame = cap.read()[1]
-h,  w = new_frame.shape[:2]
+h, w = new_frame.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx,dist,(w,h),0,(w,h))
 
 # Start a thread for the camera
@@ -121,11 +130,17 @@ def init_gl(width, height):
             tiles["black"] = OBJ(item)
         elif "White" in item.name:
             tiles["white"] = OBJ(item)
+        elif "DarkBlue" in item.name:
+            tiles["dblue"] = OBJ(item)
+        elif "LightBlue" in item.name:
+            tiles["lblue"] = OBJ(item)
         elif "Dark" in item.name:
             tiles["dark"] = OBJ(item)
         elif "Light" in item.name:
             tiles["light"] = OBJ(item)
-    print("loaded tiles")
+        
+        
+    print(f"loaded tiles: {tiles.keys()}")
 
     white_pieces = {}
     for item in Path("WhiteLP").glob("*.obj"):
@@ -160,7 +175,7 @@ def init_gl(width, height):
 
     print("loaded the black pieces")
 
-    board = BoardTiles(tiles["black"], tiles["white"], tiles["dark"], tiles["light"], black_pieces, white_pieces, 2)
+    board = BoardTiles(tiles["black"], tiles["white"], tiles["dark"], tiles["light"], black_pieces, white_pieces, tiles["dblue"], tiles["lblue"], 2)
         
     # assign texture
     glEnable(GL_TEXTURE_2D)
@@ -179,6 +194,7 @@ def track(frame):
     global c_time
     global c_d
     global start_pinch
+    global chesspts
 
     hand_frame = frame.copy()
     found, hand_frame = tracker.find_hands(hand_frame, selfie=False, draw=False)
@@ -205,15 +221,28 @@ def track(frame):
     aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_50)  
     parameters = cv.aruco.DetectorParameters_create()  
     parameters.cornerRefinementMethod = cv.aruco.CORNER_REFINE_SUBPIX
-    corners, ids, _ = cv.aruco.detectMarkers(gray, aruco_dict,
+    corners, ids, objp = cv.aruco.detectMarkers(gray, aruco_dict,
                                               parameters=parameters,
                                               cameraMatrix=mtx,
                                               distCoeff=dist)
 
+    # undistort
+    dst = cv.undistort(hand_frame, mtx, dist)
+
+    # crop the image
+    x,y,w,h = roi
+    dst = dst[y:y+h, x:x+w]
+    hand_frame = dst
     if np.all(ids is not None):  # If there are markers found by detector
         last_corners = corners
 
     if last_corners:
+        pnts = arucopts*3
+        m = cv.getPerspectiveTransform(pnts.astype(np.float32), np.squeeze(np.array(last_corners)).astype(np.float32))
+        for p in chesspts:
+            tp = m @ p
+            cv.circle(hand_frame, (int(tp[0]), int(tp[1])), 2, (255,0,0), thickness=3)
+            
         # rvec, tvec, markerPoints = cv.aruco.estimatePoseSingleMarkers(last_corners[0], aruco_d, mtx, dist)
         rvec, tvec, markerPoints = cv.aruco.estimatePoseSingleMarkers(last_corners[0], aruco_d, mtx, dist)
         rmtx = cv.Rodrigues(rvec)[0]
@@ -256,14 +285,8 @@ def track(frame):
 def update():
     global new_frame
     while(True):
-        frame = cap.read()[1]
-            # undistort
-        dst = cv.undistort(frame, mtx, dist)
+        new_frame = cap.read()[1]
 
-        # crop the image
-        x,y,w,h = roi
-        dst = dst[y:y+h, x:x+w]
-        new_frame = dst
         if thread_quit == 1:
             break
     cap.release()
@@ -274,11 +297,20 @@ def draw_gl_scene():
     global new_frame
     global texture_id
     global zoom
+    global mtx
+    global dist
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
     glLoadIdentity()
 
-    frame = new_frame
+    frame = new_frame.copy()
+    # undistort
+    dst = cv.undistort(frame, mtx, dist)
+
+    # crop the image
+    x,y,w,h = roi
+    dst = dst[y:y+h, x:x+w]
+    frame = dst
     glDisable(GL_DEPTH_TEST)
     # convert image to OpenGL texture format
     tx_image = cv.flip(frame, 0)
@@ -311,7 +343,7 @@ def draw_gl_scene():
     
     # RENDER OBJECT
     glEnable(GL_DEPTH_TEST)
-    track(frame)
+    track(new_frame)
     
     glDisable(GL_LIGHT0)
     glDisable(GL_LIGHTING)
@@ -357,10 +389,10 @@ def key_pressed(key, x, y):
         aruco_y -= 0.5
         print(f"pos: ({aruco_x}, {aruco_y}, {aruco_z})")
     elif key == ".":
-        aruco_d += 0.5
+        aruco_d += 0.1
         print(f"aruco_d: {aruco_d}")
     elif key == ",":
-        aruco_d -= 0.5
+        aruco_d -= 0.1
         if aruco_d <= 0:
             aruco_d = 0.001
         print(f"aruco_d: {aruco_d}")
