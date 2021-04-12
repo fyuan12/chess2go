@@ -41,6 +41,8 @@ class BoardTiles:
         self.dist = dist
         self.active_tile = None
 
+        # 64 pixel coordinates for each tile
+
     def uci_to_rc(self, uci: str):
         """
         A string in uci notation, e.g. 'c4', 'a2', etc.
@@ -143,6 +145,9 @@ class BoardTiles:
         elif identifier == '.':
             return None
 
+    def get_closest_tile(frame, pinch_pt):
+        px, py = pinch_pt
+        # go through the frame to discover point 
 
 
 if __name__ == "__main__":

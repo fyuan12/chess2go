@@ -8,7 +8,6 @@ import numpy as np
 import pickle
 from objloader import *
 from pathlib import Path
-import chess
 from pychess import BoardTiles
 import time
 from hand_tracker import HandTracker
@@ -186,6 +185,10 @@ def track(frame):
     if found:
         detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=MAX_PINCH_DIST, draw=True)
         if detected:
+            # figure our which chessboard scquare this is the closest to.
+            # now feed in the chess board frame frame and figure our the coordinates of each tile
+            # pinch_pt: the pixel coordinates of the pinch point
+
             c_time = time.time()
             # print('A pinch is detected:', pinch_pt) # the x,y coordinate of the pinch point
         else:

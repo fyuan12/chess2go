@@ -6,7 +6,7 @@ pip install mediapipe
 ```
 """
 
-import cv2
+import cv2 as cv
 import mediapipe as mp
 import time
 import math
@@ -28,8 +28,8 @@ class HandTracker():
     def find_hands(self, img, selfie=True, draw=True):
         # Selfie: Flip the image horizontally for a later selfie-view displayconvert
         if selfie:
-            img = cv2.flip(img, 1)
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = cv.flip(img, 1)
+        img_rgb = cv.cvtColor(img, cv.COLOR_BGR2RGB)
         # To improve performance, optionally mark the image as not writeable to
         # pass by reference.
         img_rgb.flags.writeable = False
@@ -37,7 +37,7 @@ class HandTracker():
 
         # Draw the hand annotations on the image.
         # img_rgb.flags.writeable = True
-        # img_rgb = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+        # img_rgb = cv.cvtColor(img_rgb, cv.COLOR_RGB2BGR)
         if self.results.multi_hand_landmarks:
             if draw:
                 for hand_landmarks in self.results.multi_hand_landmarks:
@@ -68,10 +68,10 @@ class HandTracker():
             
             # if it's a pinch draw the pinch
             if dist < max_dist:
-                cv2.circle(img, (x1, y1), 15, (255, 0, 255), cv2.FILLED)
-                cv2.circle(img, (x2, y2), 15, (255, 0, 255), cv2.FILLED)
-                cv2.line(img, (x1, y1), (x2, y2), (255, 0, 255), 3)
-                cv2.circle(img, (cx, cy), 15, (255, 0, 255), cv2.FILLED)
+                cv.circle(img, (x1, y1), 15, (255, 0, 255), cv.FILLED)
+                cv.circle(img, (x2, y2), 15, (255, 0, 255), cv.FILLED)
+                cv.line(img, (x1, y1), (x2, y2), (255, 0, 255), 3)
+                cv.circle(img, (cx, cy), 15, (255, 0, 255), cv.FILLED)
                 self.false_counter = 0
                 self.pinch_state = True
             else:
@@ -80,11 +80,16 @@ class HandTracker():
                 if self.false_counter >= 5:
                     self.pinch_state = False
             return self.pinch_state, (cx, cy)
+    
+    def get_closest_tile(frame, pinch_pt):
+        # px, py = pinch_pt
+        pass
+        # go through the frame to discover point 
 
 def main():
     p_time = 0
     c_time = 0
-    cap = cv2.VideoCapture(1)
+    cap = cv.VideoCapture(1)
     detector = HandTracker()
     while True:
         ret, img = cap.read()
@@ -96,11 +101,11 @@ def main():
         fps = 1/(c_time - p_time)
         p_time = c_time
  
-        cv2.putText(img, str(int(fps)), (10, 70), cv2.FONT_HERSHEY_PLAIN, 3,
+        cv.putText(img, str(int(fps)), (10, 70), cv.FONT_HERSHEY_PLAIN, 3,
                     (255, 0, 255), 3)
  
-        cv2.imshow('MediaPipe Hands', img)
-        if cv2.waitKey(5) & 0xFF == ord('q'):
+        cv.imshow('MediaPipe Hands', img)
+        if cv.waitKey(5) & 0xFF == ord('q'):
             break
  
 if __name__ == "__main__":
