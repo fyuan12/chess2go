@@ -10,10 +10,9 @@ from objloader import *
 from pathlib import Path
 import chess
 from pychess import BoardTiles
-
 import time
-import queue
 from hand_tracker import HandTracker
+
 MAX_PINCH_DIST = 100
 p_time = 0
 c_time = 0
@@ -33,8 +32,8 @@ current_view_matrix = np.array([])
 new_frame = np.array([])
 zoom = -16.5
 aruco_d = 5.5
-aruco_x = 9
-aruco_y = -6
+aruco_x = 6.5
+aruco_y = -10
 aruco_z = 0
 c_d = 1
 last_corners = []
@@ -45,7 +44,10 @@ zeroZone = (-1, -1)
 criteria = (cv.TERM_CRITERIA_EPS + cv.TermCriteria_COUNT, 40, 0.001)
 
 cap = cv.VideoCapture(1)
-_, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
+# _, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
+with np.load('cap_int_params.npz') as data:
+    mtx, dist = data['arr_0'], data['arr_1']
+
 new_frame = cap.read()[1]
 h,  w = new_frame.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx,dist,(w,h),0,(w,h))
@@ -54,6 +56,41 @@ newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx,dist,(w,h),0,(w,h))
 def init():
     video_thread = Thread(target=update, args=())
     video_thread.start()
+    console_thread = Thread(target=console, args=())
+    console_thread.start()
+
+import cProfile, pstats, io
+
+def console():
+    global board
+    while board == 0:
+        continue
+    while True:
+        try:
+            move = input(f'Enter move for {"white" if board.board.turn else "black"}: ')
+            board.board.push_uci(move)
+        except ValueError:
+            print("Invalid move")
+
+
+def profile(fnc):
+    
+    """A decorator that uses cProfile to profile a function"""
+    
+    def inner(*args, **kwargs):
+        
+        pr = cProfile.Profile()
+        pr.enable()
+        retval = fnc(*args, **kwargs)
+        pr.disable()
+        s = io.StringIO()
+        sortby = 'cumulative'
+        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+        ps.print_stats()
+        print(s.getvalue())
+        return retval
+
+    return inner
 
 # Initialize opengl frame and load in .obj files into opengl
 def init_gl(width, height):
@@ -66,8 +103,13 @@ def init_gl(width, height):
     glEnable(GL_DEPTH_TEST)
     glShadeModel(GL_SMOOTH)
     glMatrixMode(GL_PROJECTION)
+
     glLoadIdentity()
     gluPerspective(40, 640/480, 0.1, 100.0)
+    #glLight(GL_LIGHT0, GL_POSITION,  (0, 0, 1, 0)) # directional light from the front
+    glLight(GL_LIGHT0, GL_POSITION,  (5, 5, 5, 1)) # point light from the left, top, front
+    glLightfv(GL_LIGHT0, GL_AMBIENT, (0, 0, 0, 1))
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, (1, 1, 1, 1))
     glMatrixMode(GL_MODELVIEW)
 
     def load_item(item):
@@ -86,7 +128,7 @@ def init_gl(width, height):
     print("loaded tiles")
 
     white_pieces = {}
-    for item in Path("White").glob("*.obj"):
+    for item in Path("WhiteLP").glob("*.obj"):
         if "King" in item.name:
             white_pieces["king"] = load_item(item)
         elif "Queen" in item.name:
@@ -102,7 +144,7 @@ def init_gl(width, height):
     print("loaded white pieces")
     
     black_pieces = {}
-    for item in Path("Black").glob("*.obj"):
+    for item in Path("BlackLP").glob("*.obj"):
         if "King" in item.name:
             black_pieces["king"] = load_item(item)
         elif "Queen" in item.name:
@@ -139,17 +181,16 @@ def track(frame):
     global start_pinch
 
     hand_frame = frame.copy()
-    # found, hand_frame = tracker.find_hands(hand_frame, selfie=False, draw=False)
-    # # if at least one hand is found
-    # if found:
-    #     detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=MAX_PINCH_DIST, draw=True)
-    #     if detected:
-    #         c_time = time.time()
-    #         if 
-    #         print('A pinch is detected:', pinch_pt) # the x,y coordinate of the pinch point
-    #     else:
-    #         start_pinch == 0
-    #         print('A pinch is not detected.')
+    found, hand_frame = tracker.find_hands(hand_frame, selfie=False, draw=False)
+    # if at least one hand is found
+    if found:
+        detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=MAX_PINCH_DIST, draw=True)
+        if detected:
+            c_time = time.time()
+            # print('A pinch is detected:', pinch_pt) # the x,y coordinate of the pinch point
+        else:
+            start_pinch == 0
+            # print('A pinch is not detected.')
     
     
     # calculate and output fps
@@ -236,6 +277,7 @@ def draw_gl_scene():
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
     glLoadIdentity()
+
     frame = new_frame
     glDisable(GL_DEPTH_TEST)
     # convert image to OpenGL texture format
@@ -264,10 +306,15 @@ def draw_gl_scene():
     glEnd()
     glPopMatrix()
     
+    glEnable(GL_LIGHTING)
+    glEnable(GL_LIGHT0)
+    
     # RENDER OBJECT
     glEnable(GL_DEPTH_TEST)
     track(frame)
     
+    glDisable(GL_LIGHT0)
+    glDisable(GL_LIGHTING)
     glutSwapBuffers()
 
 # Keyboard control loop
@@ -360,6 +407,19 @@ def key_pressed(key, x, y):
 
 
 def run():
+    # import cProfile
+    # cProfile.run('main()', "output.dat")
+
+    # import pstats
+    # from pstats import SortKey
+
+    # with open("output_time.txt", "w") as f:
+    #     p = pstats.Stats("output.dat", stream=f)
+    #     p.sort_stats("time").print_stats()
+
+    # with open("output_calls.txt", "w") as f:
+    #     p = pstats.Stats("output.dat", stream=f)
+    #     p.sort_stats("calls").print_stats()
     glutInit(sys.argv)
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
     glutInitWindowSize(640, 480)
@@ -371,7 +431,13 @@ def run():
     init_gl(640, 480)
     glutMainLoop()
 
+def main():
+    try:
+        init()
+        run()
+    except TypeError:
+        print("We should just pass")
+        pass
 
 if __name__ == "__main__":
-    init()
-    run()
+    main()

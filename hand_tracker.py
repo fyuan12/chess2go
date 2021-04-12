@@ -10,7 +10,6 @@ import cv2
 import mediapipe as mp
 import time
 import math
-import queue
 
 class HandTracker():
     def __init__(self, mode=False, max_hands=2, min_detect_confidence=0.5, min_track_confidence=0.5):

@@ -9,7 +9,6 @@ The HandTracker class has two main methods:
 import cv2
 import time
 import numpy as np
-import queue
 from hand_tracker import HandTracker
 
 MAX_PINCH_DIST = 100
