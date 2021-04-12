@@ -32,8 +32,8 @@ current_view_matrix = np.array([])
 new_frame = np.array([])
 zoom = -16.5
 aruco_d = 5.5
-aruco_x = 9
-aruco_y = -6
+aruco_x = 6.5
+aruco_y = -10
 aruco_z = 0
 c_d = 1
 last_corners = []
@@ -56,8 +56,22 @@ newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx,dist,(w,h),0,(w,h))
 def init():
     video_thread = Thread(target=update, args=())
     video_thread.start()
+    console_thread = Thread(target=console, args=())
+    console_thread.start()
 
 import cProfile, pstats, io
+
+def console():
+    global board
+    while board == 0:
+        continue
+    while True:
+        try:
+            move = input(f'Enter move for {"white" if board.board.turn else "black"}: ')
+            board.board.push_uci(move)
+        except ValueError:
+            print("Invalid move")
+
 
 def profile(fnc):
     
@@ -317,8 +331,7 @@ def key_pressed(key, x, y):
     key = key.decode("utf-8") 
     if key == "q":
         thread_quit = 1
-        raise TypeError("End of program reached")
-        # os._exit(1)
+        os._exit(1)
     elif key == "m":
         zoom += 0.1
         print(f"zoom: {zoom}")
