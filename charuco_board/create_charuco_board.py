@@ -5,7 +5,7 @@ from cv2 import aruco
 row_count = 8
 col_count = 8
 square_length = 1
-marker_length = 0.4
+marker_length = 0.7
 aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
 
 # Create constants to be passed into OpenCV and Aruco methods

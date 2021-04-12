@@ -42,6 +42,22 @@ winSize = (5, 5)
 zeroZone = (-1, -1)
 criteria = (cv.TERM_CRITERIA_EPS + cv.TermCriteria_COUNT, 40, 0.001)
 
+# ChAruco board variables
+row_count = 8
+col_count = 8
+square_length = 1
+marker_length = 0.4
+aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
+
+# Create constants to be passed into OpenCV and Aruco methods
+board = aruco.CharucoBoard_create(
+        squaresX=col_count,
+        squaresY=row_count,
+        squareLength=square_length,
+        markerLength=marker_length,
+        dictionary=aruco_dict)
+arucoParams = aruco.DetectorParameters_create()
+
 cap = cv.VideoCapture(1)
 # _, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
 with np.load('cap_int_params.npz') as data:
@@ -205,6 +221,10 @@ def track(frame):
 
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY) 
     gray = cv.GaussianBlur(gray, winSize, 0)
+
+
+    
+
     aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_50)  
     parameters = cv.aruco.DetectorParameters_create()  
     parameters.cornerRefinementMethod = cv.aruco.CORNER_REFINE_SUBPIX
