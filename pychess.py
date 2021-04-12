@@ -8,8 +8,8 @@ pip install chess
 import chess
 import numpy as np
 
-print(chess.WHITE) # This is True
-print(chess.BLACK) # This is False
+# print(chess.WHITE) # This is True
+# print(chess.BLACK) # This is False
 
 class BoardTiles:
     """
