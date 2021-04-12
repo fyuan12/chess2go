@@ -55,6 +55,27 @@ def init():
     video_thread = Thread(target=update, args=())
     video_thread.start()
 
+import cProfile, pstats, io
+
+def profile(fnc):
+    
+    """A decorator that uses cProfile to profile a function"""
+    
+    def inner(*args, **kwargs):
+        
+        pr = cProfile.Profile()
+        pr.enable()
+        retval = fnc(*args, **kwargs)
+        pr.disable()
+        s = io.StringIO()
+        sortby = 'cumulative'
+        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+        ps.print_stats()
+        print(s.getvalue())
+        return retval
+
+    return inner
+
 # Initialize opengl frame and load in .obj files into opengl
 def init_gl(width, height):
     global texture_id
@@ -66,8 +87,13 @@ def init_gl(width, height):
     glEnable(GL_DEPTH_TEST)
     glShadeModel(GL_SMOOTH)
     glMatrixMode(GL_PROJECTION)
+
     glLoadIdentity()
     gluPerspective(40, 640/480, 0.1, 100.0)
+    #glLight(GL_LIGHT0, GL_POSITION,  (0, 0, 1, 0)) # directional light from the front
+    glLight(GL_LIGHT0, GL_POSITION,  (5, 5, 5, 1)) # point light from the left, top, front
+    glLightfv(GL_LIGHT0, GL_AMBIENT, (0, 0, 0, 1))
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, (1, 1, 1, 1))
     glMatrixMode(GL_MODELVIEW)
 
     def load_item(item):
@@ -86,7 +112,7 @@ def init_gl(width, height):
     print("loaded tiles")
 
     white_pieces = {}
-    for item in Path("White").glob("*.obj"):
+    for item in Path("WhiteLP").glob("*.obj"):
         if "King" in item.name:
             white_pieces["king"] = load_item(item)
         elif "Queen" in item.name:
@@ -102,7 +128,7 @@ def init_gl(width, height):
     print("loaded white pieces")
     
     black_pieces = {}
-    for item in Path("Black").glob("*.obj"):
+    for item in Path("BlackLP").glob("*.obj"):
         if "King" in item.name:
             black_pieces["king"] = load_item(item)
         elif "Queen" in item.name:
@@ -139,17 +165,16 @@ def track(frame):
     global start_pinch
 
     hand_frame = frame.copy()
-    # found, hand_frame = tracker.find_hands(hand_frame, selfie=False, draw=False)
-    # # if at least one hand is found
-    # if found:
-    #     detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=MAX_PINCH_DIST, draw=True)
-    #     if detected:
-    #         c_time = time.time()
-    #         if 
-    #         print('A pinch is detected:', pinch_pt) # the x,y coordinate of the pinch point
-    #     else:
-    #         start_pinch == 0
-    #         print('A pinch is not detected.')
+    found, hand_frame = tracker.find_hands(hand_frame, selfie=False, draw=False)
+    # if at least one hand is found
+    if found:
+        detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=MAX_PINCH_DIST, draw=True)
+        if detected:
+            c_time = time.time()
+            # print('A pinch is detected:', pinch_pt) # the x,y coordinate of the pinch point
+        else:
+            start_pinch == 0
+            # print('A pinch is not detected.')
     
     
     # calculate and output fps
@@ -236,6 +261,7 @@ def draw_gl_scene():
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
     glLoadIdentity()
+
     frame = new_frame
     glDisable(GL_DEPTH_TEST)
     # convert image to OpenGL texture format
@@ -264,10 +290,15 @@ def draw_gl_scene():
     glEnd()
     glPopMatrix()
     
+    glEnable(GL_LIGHTING)
+    glEnable(GL_LIGHT0)
+    
     # RENDER OBJECT
     glEnable(GL_DEPTH_TEST)
     track(frame)
     
+    glDisable(GL_LIGHT0)
+    glDisable(GL_LIGHTING)
     glutSwapBuffers()
 
 # Keyboard control loop
@@ -284,7 +315,8 @@ def key_pressed(key, x, y):
     key = key.decode("utf-8") 
     if key == "q":
         thread_quit = 1
-        os._exit(1)
+        raise TypeError("End of program reached")
+        # os._exit(1)
     elif key == "m":
         zoom += 0.1
         print(f"zoom: {zoom}")
@@ -360,6 +392,19 @@ def key_pressed(key, x, y):
 
 
 def run():
+    # import cProfile
+    # cProfile.run('main()', "output.dat")
+
+    # import pstats
+    # from pstats import SortKey
+
+    # with open("output_time.txt", "w") as f:
+    #     p = pstats.Stats("output.dat", stream=f)
+    #     p.sort_stats("time").print_stats()
+
+    # with open("output_calls.txt", "w") as f:
+    #     p = pstats.Stats("output.dat", stream=f)
+    #     p.sort_stats("calls").print_stats()
     glutInit(sys.argv)
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
     glutInitWindowSize(640, 480)
@@ -371,7 +416,13 @@ def run():
     init_gl(640, 480)
     glutMainLoop()
 
+def main():
+    try:
+        init()
+        run()
+    except TypeError:
+        print("We should just pass")
+        pass
 
 if __name__ == "__main__":
-    init()
-    run()
+    main()
