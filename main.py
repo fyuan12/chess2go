@@ -10,10 +10,9 @@ from objloader import *
 from pathlib import Path
 import chess
 from pychess import BoardTiles
-
 import time
-import queue
 from hand_tracker import HandTracker
+
 MAX_PINCH_DIST = 100
 p_time = 0
 c_time = 0
@@ -45,7 +44,10 @@ zeroZone = (-1, -1)
 criteria = (cv.TERM_CRITERIA_EPS + cv.TermCriteria_COUNT, 40, 0.001)
 
 cap = cv.VideoCapture(1)
-_, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
+# _, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
+with np.load('cap_int_params.npz') as data:
+    mtx, dist = data['arr_0'], data['arr_1']
+
 new_frame = cap.read()[1]
 h,  w = new_frame.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx,dist,(w,h),0,(w,h))
