@@ -12,7 +12,7 @@ from pathlib import Path
 from pychess import BoardTiles
 import time
 import cProfile, pstats, io
-from hand_tracker import HandTracker
+from hand_tracker import HandTracker, PinchState
 
 # Update per computer
 cap = cv.VideoCapture(1)
@@ -22,6 +22,7 @@ _, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
 
 # Hand tracking variables
 max_pinch_dist = 30
+min_pinch_dist = 10
 p_time = 0
 c_time = 0
 tracker = HandTracker(min_detect_confidence=0.7)
@@ -57,6 +58,7 @@ aruco_params = aruco.DetectorParameters_create()
 
 rvec = np.array([])
 tvec = np.array([])
+pinched_piece = None
 
 new_frame = cap.read()[1]
 h, w = new_frame.shape[:2]
@@ -196,6 +198,7 @@ def track(frame):
     global tvec
     global pre_pos
     global post_pos
+    global pinched_piece
 
     # From charuco board to 3D rendering
     hand_frame = frame.copy()
@@ -258,14 +261,15 @@ def track(frame):
 
     # if at least one hand is found
     if found:
-        detected, pinch_pt = tracker.get_pinch(hand_frame, min_dist=max_dist=max_pinch_dist, draw=True) # pinch_pt: the pixel coordinates of the pinch point
-        if detected:
-            # figure our which chessboard scquare this is the closest to.
-            # now feed in the chess board frame frame and figure our the coordinates of each tile
-            print('A pinch is detected:', pinch_pt) # the x,y coordinate of the pinch point
+        detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=max_pinch_dist, min_dist=min_pinch_dist, draw=True) # pinch_pt: the pixel coordinates of the pinch point
+        if detected == PinchState.PINCH:
+            # a pinch motino is detected
+            print('A PINCH is detected:', pinch_pt) # the x,y coordinate of the pinch point
+        elif detected == PinchState.UNPINCH:
+            # unpinch is detected
+            print('An UNPINCH is detected.', pint_pt)
         else:
-            start_pinch == 0
-            # print('A pinch is not detected.')
+            print('UNSURE')
 
     # with pinch point coordinate and all corners coordinates, generate the tile that the pinch point is in
     chpts = np.array([[1,1],
@@ -274,18 +278,42 @@ def track(frame):
                   [7,1]], dtype=np.float32)
     pts = all_corners[np.array([6,0,42,48])]
     
+    # translate to the tile number
     if pts.all() and found:
         m = cv.getPerspectiveTransform(pts.astype(np.float32), chpts)
         pinch_pt = np.array([pinch_pt[0], pinch_pt[1], 1])
         coords = m @ pinch_pt
-        valid = True
+        valid_coords = True
+
         for coord in coords[0:2]:
             if coord < 0 or coord > 8:
-                valid = False
-        if valid:
+                valid_coords = False
+        
+        pinched_piece = None
+        if valid_coords:
+            letter_index = int(coords[0])
+            number_index = int(coords[1])
             index = int(coords[0])*8+int(coords[1])
-            board.set_active_tile(index)
 
+            if detected= == PinchState.PINCH:
+                board.set_active_tile(index)
+                pinched_piece = "{}{}".format(board.LETTERS[letter_index], board.NUMBERS[number_index])
+                print("Select piece:", pinched_piece)
+            
+            elif detected == PinchState.UNSURE and pinch_piece is not None:
+                # board.set_active_tile(index)
+                pass
+            
+            elif detected == PinchState.UNPINCH and pinched_piece is not None:
+                board.set_active_tile(index)
+                # make the move
+                move_str = "{}{}{}".format(pinched_piece, board.LETTERS[letter_index], board.NUMBERS[number_index])
+                print("Move: ", move_str)
+                try:
+                    board.board.push_uci(move_str)
+                    pinched_piece = None
+                except ValueError:
+                    print("Invalid move")
 
     # calculate and output fps
     c_time = time.time()

@@ -10,6 +10,12 @@ import cv2 as cv
 import mediapipe as mp
 import time
 import math
+from enum import Enum
+
+class PinchState(Enum):
+    PINCH = 1
+    UNPINCH = 2
+    UNSURE = 3
 
 class HandTracker():
     def __init__(self, mode=False, max_hands=2, min_detect_confidence=0.5, min_track_confidence=0.5):
@@ -22,7 +28,8 @@ class HandTracker():
         self.hands = self.mp_hands.Hands(self.mode, self.max_hands, self.min_detect_confidence, self.min_track_confidence)
         self.mp_drawing = mp.solutions.drawing_utils
         
-        self.pinch_state = False
+        self.pinch_state = PinchState.UNSURE
+        self.true_counter = 0 # used to detect an unpinch
         self.false_counter = 0 # used to avoid false negatives
 
     def find_hands(self, img, mirror=True, draw=True):
@@ -57,7 +64,7 @@ class HandTracker():
                 lm_list.append([i, cx, cy])
         return lm_list
 
-    def get_pinch(self, img, min_dist=0, max_dist, draw=True):
+    def get_pinch(self, img, max_dist, min_dist=0, draw=True):
         lmList = self._get_coordinates(img)
         dist = 0.0
         if len(lmList) != 0:
@@ -66,22 +73,26 @@ class HandTracker():
             cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
             dist = math.hypot(x2 - x1, y2 - y1) # pixel distance between thumb and index
             
-            # if it's a pinch draw the pinch
-            if dist < max_dist and dist >= min_dist:
-                cv.circle(img, (x1, y1), 15, (255, 0, 255), cv.FILLED)
-                cv.circle(img, (x2, y2), 15, (255, 0, 255), cv.FILLED)
-                cv.line(img, (x1, y1), (x2, y2), (255, 0, 255), 3)
-                cv.circle(img, (cx, cy), 15, (255, 0, 255), cv.FILLED)
+            if dist < max_dist:
+                # if it's a pinch draw the pinch
+                # self.true_counter += 1
                 self.false_counter = 0
-                self.pinch_state = True
-            elif dist < min_dist:
-                self.false_counter = 0
-                self.pinch_state = True
+                if draw:
+                    cv.circle(img, (x1, y1), 15, (255, 0, 255), cv.FILLED)
+                    cv.circle(img, (x2, y2), 15, (255, 0, 255), cv.FILLED)
+                    cv.line(img, (x1, y1), (x2, y2), (255, 0, 255), 3)
+                    cv.circle(img, (cx, cy), 15, (255, 0, 255), cv.FILLED)
+                if dist < min_dist:
+                    self.pinch_state = PinchState.PINCH
+                else:
+                    self.pinch_state = PinchState.UNSURE
             else:
                 self.false_counter += 1
+                # self.true_counter = 0
                 # check if the pinch state has been false for at least 5 frames in a row
+                # or an unpinch is detected
                 if self.false_counter >= 5:
-                    self.pinch_state = False
+                    self.pinch_state = PinchState.UNPINCH
             return self.pinch_state, (cx, cy)
 
 def main():
