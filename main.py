@@ -14,6 +14,12 @@ import time
 import cProfile, pstats, io
 from hand_tracker import HandTracker
 
+# Update per computer
+cap = cv.VideoCapture(1)
+# _, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
+with np.load('cap_int_params.npz') as data:
+    mtx, dist = data['arr_0'], data['arr_1']
+
 # Hand tracking variables
 max_pinch_dist = 100
 p_time = 0
@@ -56,11 +62,6 @@ aruco_params = aruco.DetectorParameters_create()
 
 rvec = np.array([])
 tvec = np.array([])
-
-cap = cv.VideoCapture(1)
-# _, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
-with np.load('cap_int_params.npz') as data:
-    mtx, dist = data['arr_0'], data['arr_1']
 
 new_frame = cap.read()[1]
 h,  w = new_frame.shape[:2]
