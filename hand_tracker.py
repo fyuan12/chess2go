@@ -80,11 +80,6 @@ class HandTracker():
                 if self.false_counter >= 5:
                     self.pinch_state = False
             return self.pinch_state, (cx, cy)
-    
-    def get_closest_tile(frame, pinch_pt):
-        # px, py = pinch_pt
-        pass
-        # go through the frame to discover point 
 
 def main():
     p_time = 0

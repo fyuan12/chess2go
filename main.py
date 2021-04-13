@@ -208,9 +208,10 @@ def track(frame):
 
         # if pose estimation is successful, render the chessboard and chess pieces
         if retval:
-            all_corners = np.append(all_corners, c_corners)
-            all_ids = np.append(all_ids, c_ids)
-
+            if all_corners.shape[0] == 98:
+                all_corners = np.append(all_corners, c_corners)
+                all_ids = np.append(all_ids, c_ids)
+    
             rmtx = cv.Rodrigues(rvec)[0]
             view_matrix = np.array([[rmtx[0][0],rmtx[0][1],rmtx[0][2],tvec[0,0]],
                                     [rmtx[1][0],rmtx[1][1],rmtx[1][2],tvec[1,0]],
@@ -243,13 +244,7 @@ def track(frame):
                 piece.render()
                 glPopMatrix()
 
-
-    print(all_corners.shape)
-    print(all_corners)
-    print(all_ids.shape)
-    print(all_ids)
     # detect pinch/unpinch actions
-    
     found, hand_frame = tracker.find_hands(hand_frame, mirror=False, draw=False)
 
     # if at least one hand is found
@@ -262,6 +257,10 @@ def track(frame):
         else:
             start_pinch == 0
             # print('A pinch is not detected.')
+
+    # with pinch point coordinate and all corners coordinates, generate the tile that the pinch point is in
+    all_corners = np.reshape(all_corners, (-1, 2))
+    print(all_corners)
 
     # calculate and output fps
     c_time = time.time()
