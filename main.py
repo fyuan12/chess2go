@@ -13,6 +13,7 @@ from pychess import BoardTiles
 import time
 from hand_tracker import HandTracker
 
+# Hand tracking variables
 MAX_PINCH_DIST = 100
 p_time = 0
 c_time = 0
@@ -36,21 +37,19 @@ aruco_x = 6.5
 aruco_y = -10
 aruco_z = 0
 c_d = 1
-last_corners = []
 
 # Set the needed parameters to find the refined corners
 winSize = (5, 5)
 zeroZone = (-1, -1)
 criteria = (cv.TERM_CRITERIA_EPS + cv.TermCriteria_COUNT, 40, 0.001)
 
-# ChAruco board variables
+# Charuco board variables
 row_count = 8
 col_count = 8
-square_length = 1
+square_length = aruco_d
 marker_length = square_length*0.7
 aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
 
-# Create constants to be passed into OpenCV and Aruco methods
 Charucoboard = aruco.CharucoBoard_create(
         squaresX=col_count,
         squaresY=row_count,
@@ -58,6 +57,7 @@ Charucoboard = aruco.CharucoBoard_create(
         markerLength=marker_length,
         dictionary=aruco_dict)
 arucoParams = aruco.DetectorParameters_create()
+
 rvec = np.array([])
 tvec = np.array([])
 
@@ -192,7 +192,6 @@ def track(frame):
     global aruco_x
     global aruco_y
     global aruco_z
-    global last_corners
     global p_time
     global c_time
     global c_d
@@ -200,107 +199,73 @@ def track(frame):
     global rvec
     global tvec
 
+    # From charuco board to 3D rendering
+    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=arucoParams)  # First, detect markers
+    aruco.refineDetectedMarkers(gray, Charucoboard, corners, ids, rejectedImgPoints)
+
+    if np.all(ids is not None): # if there is at least one marker detected
+        charucoretval, charucoCorners, charucoIds = aruco.interpolateCornersCharuco(corners, ids, gray, Charucoboard)
+        # frame = aruco.drawDetectedCornersCharuco(frame, charucoCorners, charucoIds, (0,255,0))
+        retval, rvec, tvec = aruco.estimatePoseCharucoBoard(charucoCorners, charucoIds, Charucoboard, mtx, dist, rvec, tvec)  # posture estimation from a charuco board
+
+        # if pose estimation is successful, render the chessboard and chess pieces
+        if retval:
+            rmtx = cv.Rodrigues(rvec)[0]
+            view_matrix = np.array([[rmtx[0][0],rmtx[0][1],rmtx[0][2],tvec[0,0]],
+                                    [rmtx[1][0],rmtx[1][1],rmtx[1][2],tvec[1,0]],
+                                    [rmtx[2][0],rmtx[2][1],rmtx[2][2],tvec[2,0]],
+                                    [0.0       ,0.0       ,0.0       ,1.0    ]])
+            view_matrix = view_matrix * INVERSE_MATRIX
+            view_matrix = np.transpose(view_matrix)
+
+            # Draw Chessboard
+            for dx, dy, tile in board.get_tiles():
+                glPushMatrix()
+                glLoadMatrixd(view_matrix)
+                
+                glRotate(90, 1, 0, 0)
+                glRotate(90, 0, 1, 0)
+                glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
+                
+                tile.render()
+                glPopMatrix()
+
+            # Draw Pieces
+            for dx, dy, piece in board.get_pieces():
+                glPushMatrix()
+                glLoadMatrixd(view_matrix)
+                
+                glRotate(90, 1, 0, 0)
+                glRotate(90, 0, 1, 0)
+                glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
+                
+                piece.render()
+                glPopMatrix()
+
+    # detect pinch/unpinch actions
     hand_frame = frame.copy()
     found, hand_frame = tracker.find_hands(hand_frame, selfie=False, draw=False)
+
     # if at least one hand is found
     if found:
-        detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=MAX_PINCH_DIST, draw=True)
+        detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=MAX_PINCH_DIST, draw=True) # pinch_pt: the pixel coordinates of the pinch point
         if detected:
             # figure our which chessboard scquare this is the closest to.
             # now feed in the chess board frame frame and figure our the coordinates of each tile
-            # pinch_pt: the pixel coordinates of the pinch point
-
-            c_time = time.time()
-            # print('A pinch is detected:', pinch_pt) # the x,y coordinate of the pinch point
+            print('A pinch is detected:', pinch_pt) # the x,y coordinate of the pinch point
         else:
             start_pinch == 0
             # print('A pinch is not detected.')
-    
-    
+
     # calculate and output fps
     c_time = time.time()
     fps = 1/(c_time - p_time)
     p_time = c_time
     cv.putText(hand_frame, str(int(fps)), (10, 70), cv.FONT_HERSHEY_PLAIN, 3,
                 (255, 0, 255), 3)
-
-    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY) 
-    # gray = cv.GaussianBlur(gray, winSize, 0)
-
-
     
-
-    # aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_50)  
-    # parameters = cv.aruco.DetectorParameters_create()  
-    # parameters.cornerRefinementMethod = cv.aruco.CORNER_REFINE_SUBPIX
-    # corners, ids, _ = cv.aruco.detectMarkers(gray, aruco_dict,
-    #                                           parameters=parameters,
-    #                                           cameraMatrix=mtx,
-    #                                           distCoeff=dist)
-    square_length = aruco_d
-    marker_length = square_length*0.7
-    Charucoboard = aruco.CharucoBoard_create(
-        squaresX=col_count,
-        squaresY=row_count,
-        squareLength=square_length,
-        markerLength=marker_length,
-        dictionary=aruco_dict)
-    corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=arucoParams)  # First, detect markers
-    aruco.refineDetectedMarkers(gray, Charucoboard, corners, ids, rejectedImgPoints)
-
-    retval = False
-    if np.all(ids is not None): # if there is at least one marker detected
-        charucoretval, charucoCorners, charucoIds = aruco.interpolateCornersCharuco(corners, ids, gray, Charucoboard)
-        # frame = aruco.drawDetectedCornersCharuco(frame, charucoCorners, charucoIds, (0,255,0))
-        retval, rvec, tvec = aruco.estimatePoseCharucoBoard(charucoCorners, charucoIds, Charucoboard, mtx, dist, rvec, tvec)  # posture estimation from a charuco board
-        # if retval == True:
-        #     frame = aruco.drawAxis(frame, mtx, dist, rvec, tvec, 100)  # axis length 100 can be changed according to your requirement
-
-
-    # if np.all(ids is not None):  # If there are markers found by detector
-    #     last_corners = corners
-
-    if retval:
-    #     # rvec, tvec, markerPoints = cv.aruco.estimatePoseSingleMarkers(last_corners[0], aruco_d, mtx, dist)
-        rmtx = cv.Rodrigues(rvec)[0]
-        view_matrix = np.array([[rmtx[0][0],rmtx[0][1],rmtx[0][2],tvec[0,0]],
-                                [rmtx[1][0],rmtx[1][1],rmtx[1][2],tvec[1,0]],
-                                [rmtx[2][0],rmtx[2][1],rmtx[2][2],tvec[2,0]],
-                                [0.0       ,0.0       ,0.0       ,1.0    ]])
-        view_matrix = view_matrix * INVERSE_MATRIX
-        view_matrix = np.transpose(view_matrix)
-
-        # Draw Chessboard
-        for dx, dy, tile in board.get_tiles():
-            glPushMatrix()
-            glLoadMatrixd(view_matrix)
-            
-            glRotate(90, 1, 0, 0)
-            glRotate(90, 0, 1, 0)
-            glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
-            
-        
-
-            tile.render()
-            glPopMatrix()
-
-        # Draw Pieces
-        
-        for dx, dy, piece in board.get_pieces():
-            glPushMatrix()
-            glLoadMatrixd(view_matrix)
-            
-            glRotate(90, 1, 0, 0)
-            glRotate(90, 0, 1, 0)
-            glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
-            
-            
-            piece.render()
-            glPopMatrix()
-
-
     cv.imshow('frame', hand_frame)
-    # cv.imshow('charuco', frame)
 
 # Update and undistort each camera frame
 def update():

@@ -24,7 +24,7 @@ while(True):
     
     if ret == True:
         # frame_remapped = cv.remap(frame, map1, map2, cv.INTER_LINEAR, cv.BORDER_CONSTANT)    # for fisheye remapping
-        im_with_charuco_board = frame.copy()
+        im_with_charuco_board = frame.copy
         frame_remapped_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
         corners, ids, rejectedImgPoints = aruco.detectMarkers(frame_remapped_gray, aruco_dict, parameters=arucoParams)  # First, detect markers
