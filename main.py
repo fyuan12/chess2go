@@ -16,12 +16,12 @@ from hand_tracker import HandTracker
 
 # Update per computer
 cap = cv.VideoCapture(1)
-# _, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
-with np.load('cap_int_params.npz') as data:
-    mtx, dist = data['arr_0'], data['arr_1']
+_, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
+# with np.load('cap_int_params.npz') as data:
+#     mtx, dist = data['arr_0'], data['arr_1']
 
 # Hand tracking variables
-max_pinch_dist = 100
+max_pinch_dist = 30
 p_time = 0
 c_time = 0
 tracker = HandTracker(min_detect_confidence=0.7)
@@ -39,9 +39,9 @@ thread_quit = 0
 current_view_matrix = np.array([])
 new_frame = np.array([])
 zoom = -16.5
-aruco_d = 1
-aruco_x = 6.5
-aruco_y = -10
+aruco_d = 2.08
+aruco_x = 14.5
+aruco_y = 1.5
 aruco_z = 0
 c_d = 1
 
@@ -52,19 +52,14 @@ criteria = (cv.TERM_CRITERIA_EPS + cv.TermCriteria_COUNT, 40, 0.001)
 
 # Charuco board variables
 aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
-charuco_board = aruco.CharucoBoard_create(
-        squaresX=8,
-        squaresY=8,
-        squareLength=aruco_d,
-        markerLength=aruco_d*0.7,
-        dictionary=aruco_dict)
+
 aruco_params = aruco.DetectorParameters_create()
 
 rvec = np.array([])
 tvec = np.array([])
 
 new_frame = cap.read()[1]
-h,  w = new_frame.shape[:2]
+h, w = new_frame.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx,dist,(w,h),0,(w,h))
 
 # Start a thread for the camera
@@ -134,11 +129,17 @@ def init_gl(width, height):
             tiles["black"] = OBJ(item)
         elif "White" in item.name:
             tiles["white"] = OBJ(item)
+        elif "DarkBlue" in item.name:
+            tiles["dblue"] = OBJ(item)
+        elif "LightBlue" in item.name:
+            tiles["lblue"] = OBJ(item)
         elif "Dark" in item.name:
             tiles["dark"] = OBJ(item)
         elif "Light" in item.name:
             tiles["light"] = OBJ(item)
-    print("loaded tiles")
+        
+        
+    print(f"loaded tiles: {tiles.keys()}")
 
     white_pieces = {}
     for item in Path("WhiteLP").glob("*.obj"):
@@ -173,7 +174,7 @@ def init_gl(width, height):
 
     print("loaded the black pieces")
 
-    board = BoardTiles(tiles["black"], tiles["white"], tiles["dark"], tiles["light"], black_pieces, white_pieces, 2)
+    board = BoardTiles(tiles["black"], tiles["white"], tiles["dark"], tiles["light"], black_pieces, white_pieces, tiles["dblue"], tiles["lblue"], 2)
         
     # assign texture
     glEnable(GL_TEXTURE_2D)
@@ -193,15 +194,22 @@ def track(frame):
     global start_pinch
     global rvec
     global tvec
+    global pre_pos
+    global post_pos
 
     # From charuco board to 3D rendering
     hand_frame = frame.copy()
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=aruco_params)  # First, detect markers
+    charuco_board = aruco.CharucoBoard_create(
+        squaresX=8,
+        squaresY=8,
+        squareLength=aruco_d,
+        markerLength=aruco_d*0.7,
+        dictionary=aruco_dict)
     aruco.refineDetectedMarkers(gray, charuco_board, corners, ids, rejectedImgPoints)
     
-    all_corners = np.array([])
-    all_ids = np.array([])
+    all_corners = np.empty((49,2), dtype=np.float32)
     if np.all(ids is not None): # if there is at least one marker detected
         c_retval, c_corners, c_ids = aruco.interpolateCornersCharuco(corners, ids, gray, charuco_board)
         hand_frame = aruco.drawDetectedCornersCharuco(frame, c_corners, c_ids, (0,255,0))
@@ -209,9 +217,9 @@ def track(frame):
 
         # if pose estimation is successful, render the chessboard and chess pieces
         if retval:
-            if all_corners.shape[0] == 98:
-                all_corners = np.append(all_corners, c_corners)
-                all_ids = np.append(all_ids, c_ids)
+            c_corners = np.reshape(np.array(c_corners), (-1, 2))
+            for i in range(len(c_corners)):
+                all_corners[c_ids[i]] = c_corners[i]
     
             rmtx = cv.Rodrigues(rvec)[0]
             view_matrix = np.array([[rmtx[0][0],rmtx[0][1],rmtx[0][2],tvec[0,0]],
@@ -226,9 +234,9 @@ def track(frame):
                 glPushMatrix()
                 glLoadMatrixd(view_matrix)
                 
+                glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
                 glRotate(90, 1, 0, 0)
                 glRotate(90, 0, 1, 0)
-                glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
                 
                 tile.render()
                 glPopMatrix()
@@ -238,9 +246,9 @@ def track(frame):
                 glPushMatrix()
                 glLoadMatrixd(view_matrix)
                 
+                glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
                 glRotate(90, 1, 0, 0)
                 glRotate(90, 0, 1, 0)
-                glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
                 
                 piece.render()
                 glPopMatrix()
@@ -260,8 +268,24 @@ def track(frame):
             # print('A pinch is not detected.')
 
     # with pinch point coordinate and all corners coordinates, generate the tile that the pinch point is in
-    all_corners = np.reshape(all_corners, (-1, 2))
-    print(all_corners)
+    chpts = np.array([[1,1],
+                  [1,7],
+                  [7,7],
+                  [7,1]], dtype=np.float32)
+    pts = all_corners[np.array([6,0,42,48])]
+    
+    if pts.all() and found:
+        m = cv.getPerspectiveTransform(pts.astype(np.float32), chpts)
+        pinch_pt = np.array([pinch_pt[0], pinch_pt[1], 1])
+        coords = m @ pinch_pt
+        valid = True
+        for coord in coords[0:2]:
+            if coord < 0 or coord > 8:
+                valid = False
+        if valid:
+            index = int(coords[0])*8+int(coords[1])
+            board.set_active_tile(index)
+
 
     # calculate and output fps
     c_time = time.time()
@@ -269,7 +293,7 @@ def track(frame):
     p_time = c_time
     cv.putText(hand_frame, str(int(fps)), (10, 70), cv.FONT_HERSHEY_PLAIN, 3,
                 (255, 0, 255), 3)
-    
+
     cv.imshow('frame', hand_frame)
 
 # Update and undistort each camera frame
@@ -294,14 +318,21 @@ def draw_gl_scene():
     global new_frame
     global texture_id
     global zoom
+    global mtx
+    global dist
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
     glLoadIdentity()
 
     frame = new_frame.copy()
+    dst = cv.undistort(frame, mtx, dist)
+
+    # crop the image
+    x,y,w,h = roi
+    dst = dst[y:y+h, x:x+w]
     glDisable(GL_DEPTH_TEST)
     # convert image to OpenGL texture format
-    tx_image = cv.flip(frame, 0)
+    tx_image = cv.flip(dst, 0)
     tx_image = Image.fromarray(tx_image)
     ix = tx_image.size[0]
     iy = tx_image.size[1]
@@ -347,6 +378,8 @@ def key_pressed(key, x, y):
     global aruco_z
     global c_d
     global board
+    global pre_pos
+    global post_pos
 
     key = key.decode("utf-8") 
     if key == "q":
@@ -423,7 +456,24 @@ def key_pressed(key, x, y):
         print(f"ind: {ind}")
         board.set_active_tile(ind)
         print(f"pos: {str(board.board)}")
-
+    elif key == '1':
+        pre_pos[0] -= 30
+        print(f"pre_pos: {pre_pos}")
+    elif key == '4':
+        pre_pos[0] += 30
+        print(f"pre_pos: {pre_pos}")
+    elif key == '2':
+        pre_pos[1] -= 30
+        print(f"pre_pos: {pre_pos}")
+    elif key == '5':
+        pre_pos[1] += 30
+        print(f"pre_pos: {pre_pos}")
+    elif key == '3':
+        pre_pos[2] -= 30
+        print(f"pre_pos: {pre_pos}")
+    elif key == '6':
+        pre_pos[2] += 30
+        print(f"pre_pos: {pre_pos}")
 
 
 def run():
@@ -443,7 +493,7 @@ def run():
     glutInit(sys.argv)
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
     glutInitWindowSize(640, 480)
-    glutInitWindowPosition(800, 400)
+    glutInitWindowPosition(0, -800)
     window = glutCreateWindow('OPENGL Frame')
     glutDisplayFunc(draw_gl_scene)
     glutIdleFunc(draw_gl_scene)
