@@ -21,7 +21,7 @@ _, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
 #     mtx, dist = data['arr_0'], data['arr_1']
 
 # Hand tracking variables
-max_pinch_dist = 100
+max_pinch_dist = 30
 p_time = 0
 c_time = 0
 tracker = HandTracker(min_detect_confidence=0.7)
@@ -203,8 +203,7 @@ def track(frame):
         dictionary=aruco_dict)
     aruco.refineDetectedMarkers(gray, charuco_board, corners, ids, rejectedImgPoints)
     
-    all_corners = np.array([[None]*49])
-    all_ids = np.array([])
+    all_corners = np.empty((49,2), dtype=np.float32)
     if np.all(ids is not None): # if there is at least one marker detected
         c_retval, c_corners, c_ids = aruco.interpolateCornersCharuco(corners, ids, gray, charuco_board)
         hand_frame = aruco.drawDetectedCornersCharuco(frame, c_corners, c_ids, (0,255,0))
@@ -213,8 +212,8 @@ def track(frame):
         # if pose estimation is successful, render the chessboard and chess pieces
         if retval:
             c_corners = np.reshape(np.array(c_corners), (-1, 2))
-            for i in len(c_corners):
-                all_corners[all_ids[i]] = c_corners[i]
+            for i in range(len(c_corners)):
+                all_corners[c_ids[i]] = c_corners[i]
     
             rmtx = cv.Rodrigues(rvec)[0]
             view_matrix = np.array([[rmtx[0][0],rmtx[0][1],rmtx[0][2],tvec[0,0]],
@@ -266,12 +265,21 @@ def track(frame):
     chpts = np.array([[1,1],
                   [1,7],
                   [7,7],
-                  [7,1]])
+                  [7,1]], dtype=np.float32)
     pts = all_corners[np.array([6,0,42,48])]
-    if all(pts) and found:
-        m = cv2.getPerspectiveTransform(pts, chpts)
+    
+    if pts.all() and found:
+        m = cv.getPerspectiveTransform(pts.astype(np.float32), chpts)
         pinch_pt = np.array([pinch_pt[0], pinch_pt[1], 1])
-        print(m @ pinch_pt)
+        coords = m @ pinch_pt
+        valid = True
+        for coord in coords[0:2]:
+            if coord < 0 or coord > 8:
+                valid = False
+        if valid:
+            index = int(coords[0])*8+int(coords[1])
+            board.set_active_tile(index)
+
 
     # calculate and output fps
     c_time = time.time()
@@ -478,7 +486,7 @@ def run():
     glutInit(sys.argv)
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
     glutInitWindowSize(640, 480)
-    glutInitWindowPosition(800, 400)
+    glutInitWindowPosition(0, -800)
     window = glutCreateWindow('OPENGL Frame')
     glutDisplayFunc(draw_gl_scene)
     glutIdleFunc(draw_gl_scene)
