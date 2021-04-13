@@ -1,4 +1,5 @@
 import cv2 as cv
+from cv2 import aruco
 from PIL import Image
 from OpenGL.GL import *
 from OpenGL.GLUT import *
@@ -30,7 +31,7 @@ thread_quit = 0
 current_view_matrix = np.array([])
 new_frame = np.array([])
 zoom = -16.5
-aruco_d = 5.5
+aruco_d = 1
 aruco_x = 6.5
 aruco_y = -10
 aruco_z = 0
@@ -46,17 +47,19 @@ criteria = (cv.TERM_CRITERIA_EPS + cv.TermCriteria_COUNT, 40, 0.001)
 row_count = 8
 col_count = 8
 square_length = 1
-marker_length = 0.4
+marker_length = square_length*0.7
 aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
 
 # Create constants to be passed into OpenCV and Aruco methods
-board = aruco.CharucoBoard_create(
+Charucoboard = aruco.CharucoBoard_create(
         squaresX=col_count,
         squaresY=row_count,
         squareLength=square_length,
         markerLength=marker_length,
         dictionary=aruco_dict)
 arucoParams = aruco.DetectorParameters_create()
+rvec = np.array([])
+tvec = np.array([])
 
 cap = cv.VideoCapture(1)
 # _, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
@@ -194,6 +197,8 @@ def track(frame):
     global c_time
     global c_d
     global start_pinch
+    global rvec
+    global tvec
 
     hand_frame = frame.copy()
     found, hand_frame = tracker.find_hands(hand_frame, selfie=False, draw=False)
@@ -220,29 +225,47 @@ def track(frame):
                 (255, 0, 255), 3)
 
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY) 
-    gray = cv.GaussianBlur(gray, winSize, 0)
+    # gray = cv.GaussianBlur(gray, winSize, 0)
 
 
     
 
-    aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_50)  
-    parameters = cv.aruco.DetectorParameters_create()  
-    parameters.cornerRefinementMethod = cv.aruco.CORNER_REFINE_SUBPIX
-    corners, ids, _ = cv.aruco.detectMarkers(gray, aruco_dict,
-                                              parameters=parameters,
-                                              cameraMatrix=mtx,
-                                              distCoeff=dist)
+    # aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_4X4_50)  
+    # parameters = cv.aruco.DetectorParameters_create()  
+    # parameters.cornerRefinementMethod = cv.aruco.CORNER_REFINE_SUBPIX
+    # corners, ids, _ = cv.aruco.detectMarkers(gray, aruco_dict,
+    #                                           parameters=parameters,
+    #                                           cameraMatrix=mtx,
+    #                                           distCoeff=dist)
+    square_length = aruco_d
+    marker_length = square_length*0.7
+    Charucoboard = aruco.CharucoBoard_create(
+        squaresX=col_count,
+        squaresY=row_count,
+        squareLength=square_length,
+        markerLength=marker_length,
+        dictionary=aruco_dict)
+    corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=arucoParams)  # First, detect markers
+    aruco.refineDetectedMarkers(gray, Charucoboard, corners, ids, rejectedImgPoints)
 
-    if np.all(ids is not None):  # If there are markers found by detector
-        last_corners = corners
+    retval = False
+    if np.all(ids is not None): # if there is at least one marker detected
+        charucoretval, charucoCorners, charucoIds = aruco.interpolateCornersCharuco(corners, ids, gray, Charucoboard)
+        # frame = aruco.drawDetectedCornersCharuco(frame, charucoCorners, charucoIds, (0,255,0))
+        retval, rvec, tvec = aruco.estimatePoseCharucoBoard(charucoCorners, charucoIds, Charucoboard, mtx, dist, rvec, tvec)  # posture estimation from a charuco board
+        # if retval == True:
+        #     frame = aruco.drawAxis(frame, mtx, dist, rvec, tvec, 100)  # axis length 100 can be changed according to your requirement
 
-    if last_corners:
-        # rvec, tvec, markerPoints = cv.aruco.estimatePoseSingleMarkers(last_corners[0], aruco_d, mtx, dist)
-        rvec, tvec, markerPoints = cv.aruco.estimatePoseSingleMarkers(last_corners[0], aruco_d, mtx, dist)
+
+    # if np.all(ids is not None):  # If there are markers found by detector
+    #     last_corners = corners
+
+    if retval:
+    #     # rvec, tvec, markerPoints = cv.aruco.estimatePoseSingleMarkers(last_corners[0], aruco_d, mtx, dist)
         rmtx = cv.Rodrigues(rvec)[0]
-        view_matrix = np.array([[rmtx[0][0],rmtx[0][1],rmtx[0][2],tvec[0,0,0]],
-                                [rmtx[1][0],rmtx[1][1],rmtx[1][2],tvec[0,0,1]],
-                                [rmtx[2][0],rmtx[2][1],rmtx[2][2],tvec[0,0,2]],
+        view_matrix = np.array([[rmtx[0][0],rmtx[0][1],rmtx[0][2],tvec[0,0]],
+                                [rmtx[1][0],rmtx[1][1],rmtx[1][2],tvec[1,0]],
+                                [rmtx[2][0],rmtx[2][1],rmtx[2][2],tvec[2,0]],
                                 [0.0       ,0.0       ,0.0       ,1.0    ]])
         view_matrix = view_matrix * INVERSE_MATRIX
         view_matrix = np.transpose(view_matrix)
@@ -252,9 +275,11 @@ def track(frame):
             glPushMatrix()
             glLoadMatrixd(view_matrix)
             
-            glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
             glRotate(90, 1, 0, 0)
             glRotate(90, 0, 1, 0)
+            glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
+            
+        
 
             tile.render()
             glPopMatrix()
@@ -265,28 +290,30 @@ def track(frame):
             glPushMatrix()
             glLoadMatrixd(view_matrix)
             
-            glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
             glRotate(90, 1, 0, 0)
             glRotate(90, 0, 1, 0)
-
+            glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
+            
+            
             piece.render()
             glPopMatrix()
 
 
     cv.imshow('frame', hand_frame)
+    # cv.imshow('charuco', frame)
 
 # Update and undistort each camera frame
 def update():
     global new_frame
     while(True):
-        frame = cap.read()[1]
-            # undistort
-        dst = cv.undistort(frame, mtx, dist)
+        new_frame = cap.read()[1]
+        #     # undistort
+        # dst = cv.undistort(frame, mtx, dist)
 
-        # crop the image
-        x,y,w,h = roi
-        dst = dst[y:y+h, x:x+w]
-        new_frame = dst
+        # # crop the image
+        # x,y,w,h = roi
+        # dst = dst[y:y+h, x:x+w]
+        # new_frame = dst
         if thread_quit == 1:
             break
     cap.release()
@@ -301,7 +328,7 @@ def draw_gl_scene():
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
     glLoadIdentity()
 
-    frame = new_frame
+    frame = new_frame.copy()
     glDisable(GL_DEPTH_TEST)
     # convert image to OpenGL texture format
     tx_image = cv.flip(frame, 0)
@@ -334,7 +361,7 @@ def draw_gl_scene():
     
     # RENDER OBJECT
     glEnable(GL_DEPTH_TEST)
-    track(frame)
+    track(new_frame)
     
     glDisable(GL_LIGHT0)
     glDisable(GL_LIGHTING)
@@ -380,10 +407,10 @@ def key_pressed(key, x, y):
         aruco_y -= 0.5
         print(f"pos: ({aruco_x}, {aruco_y}, {aruco_z})")
     elif key == ".":
-        aruco_d += 0.5
+        aruco_d += 0.01
         print(f"aruco_d: {aruco_d}")
     elif key == ",":
-        aruco_d -= 0.5
+        aruco_d -= 0.01
         if aruco_d <= 0:
             aruco_d = 0.001
         print(f"aruco_d: {aruco_d}")
