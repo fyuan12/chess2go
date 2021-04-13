@@ -59,7 +59,7 @@ rvec = np.array([])
 tvec = np.array([])
 
 new_frame = cap.read()[1]
-h,  w = new_frame.shape[:2]
+h, w = new_frame.shape[:2]
 newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx,dist,(w,h),0,(w,h))
 
 # Start a thread for the camera
@@ -129,11 +129,17 @@ def init_gl(width, height):
             tiles["black"] = OBJ(item)
         elif "White" in item.name:
             tiles["white"] = OBJ(item)
+        elif "DarkBlue" in item.name:
+            tiles["dblue"] = OBJ(item)
+        elif "LightBlue" in item.name:
+            tiles["lblue"] = OBJ(item)
         elif "Dark" in item.name:
             tiles["dark"] = OBJ(item)
         elif "Light" in item.name:
             tiles["light"] = OBJ(item)
-    print("loaded tiles")
+        
+        
+    print(f"loaded tiles: {tiles.keys()}")
 
     white_pieces = {}
     for item in Path("WhiteLP").glob("*.obj"):
@@ -168,7 +174,7 @@ def init_gl(width, height):
 
     print("loaded the black pieces")
 
-    board = BoardTiles(tiles["black"], tiles["white"], tiles["dark"], tiles["light"], black_pieces, white_pieces, 2)
+    board = BoardTiles(tiles["black"], tiles["white"], tiles["dark"], tiles["light"], black_pieces, white_pieces, tiles["dblue"], tiles["lblue"], 2)
         
     # assign texture
     glEnable(GL_TEXTURE_2D)
@@ -287,7 +293,7 @@ def track(frame):
     p_time = c_time
     cv.putText(hand_frame, str(int(fps)), (10, 70), cv.FONT_HERSHEY_PLAIN, 3,
                 (255, 0, 255), 3)
-    
+
     cv.imshow('frame', hand_frame)
 
 # Update and undistort each camera frame
@@ -312,12 +318,13 @@ def draw_gl_scene():
     global new_frame
     global texture_id
     global zoom
+    global mtx
+    global dist
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
     glLoadIdentity()
 
     frame = new_frame.copy()
-    #     # undistort
     dst = cv.undistort(frame, mtx, dist)
 
     # crop the image
