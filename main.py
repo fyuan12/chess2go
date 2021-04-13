@@ -310,9 +310,9 @@ def track(frame):
                 print("Move: ", move_str)
                 try:
                     board.board.push_uci(move_str)
-                    pinched_piece = None
                 except ValueError:
                     print("Invalid move")
+                pinched_piece = None
 
     # calculate and output fps
     c_time = time.time()
