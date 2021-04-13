@@ -201,7 +201,7 @@ def track(frame):
     global pinched_piece
 
     # From charuco board to 3D rendering
-    hand_frame = frame.copy()
+    hand_frame = np.copy(frame)
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=aruco_params)  # First, detect markers
     charuco_board = aruco.CharucoBoard_create(
@@ -310,9 +310,9 @@ def track(frame):
                 print("Move: ", move_str)
                 try:
                     board.board.push_uci(move_str)
-                    pinched_piece = None
                 except ValueError:
                     print("Invalid move")
+                pinched_piece = None
 
     # calculate and output fps
     c_time = time.time()
@@ -351,7 +351,7 @@ def draw_gl_scene():
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
     glLoadIdentity()
 
-    frame = new_frame.copy()
+    frame = np.copy(new_frame)
     dst = cv.undistort(frame, mtx, dist)
 
     # crop the image
