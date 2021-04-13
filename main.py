@@ -21,8 +21,8 @@ _, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
 #     mtx, dist = data['arr_0'], data['arr_1']
 
 # Hand tracking variables
-max_pinch_dist = 30
-min_pinch_dist = 10
+max_pinch_dist = 50
+min_pinch_dist = 20
 p_time = 0
 c_time = 0
 tracker = HandTracker(min_detect_confidence=0.7)
@@ -289,13 +289,12 @@ def track(frame):
             if coord < 0 or coord > 8:
                 valid_coords = False
         
-        pinched_piece = None
         if valid_coords:
             letter_index = int(coords[0])
             number_index = int(coords[1])
             index = int(coords[0])+int(coords[1])*8
 
-            if detected == PinchState.PINCH:
+            if detected == PinchState.PINCH and pinched_piece is None:
                 board.set_active_tile(index)
                 pinched_piece = "{}{}".format(board.LETTERS[letter_index], board.NUMBERS[number_index])
                 print("Select piece:", pinched_piece)
