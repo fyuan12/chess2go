@@ -11,10 +11,11 @@ from objloader import *
 from pathlib import Path
 from pychess import BoardTiles
 import time
+import cProfile, pstats, io
 from hand_tracker import HandTracker
 
 # Hand tracking variables
-MAX_PINCH_DIST = 100
+max_pinch_dist = 100
 p_time = 0
 c_time = 0
 tracker = HandTracker(min_detect_confidence=0.7)
@@ -50,13 +51,13 @@ square_length = aruco_d
 marker_length = square_length*0.7
 aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
 
-Charucoboard = aruco.CharucoBoard_create(
+charuco_board = aruco.CharucoBoard_create(
         squaresX=col_count,
         squaresY=row_count,
         squareLength=square_length,
         markerLength=marker_length,
         dictionary=aruco_dict)
-arucoParams = aruco.DetectorParameters_create()
+aruco_params = aruco.DetectorParameters_create()
 
 rvec = np.array([])
 tvec = np.array([])
@@ -76,8 +77,6 @@ def init():
     video_thread.start()
     console_thread = Thread(target=console, args=())
     console_thread.start()
-
-import cProfile, pstats, io
 
 def console():
     global board
@@ -201,13 +200,13 @@ def track(frame):
 
     # From charuco board to 3D rendering
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-    corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=arucoParams)  # First, detect markers
-    aruco.refineDetectedMarkers(gray, Charucoboard, corners, ids, rejectedImgPoints)
+    corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=aruco_params)  # First, detect markers
+    aruco.refineDetectedMarkers(gray, charuco_board, corners, ids, rejectedImgPoints)
 
     if np.all(ids is not None): # if there is at least one marker detected
-        charucoretval, charucoCorners, charucoIds = aruco.interpolateCornersCharuco(corners, ids, gray, Charucoboard)
+        charucoretval, charucoCorners, charucoIds = aruco.interpolateCornersCharuco(corners, ids, gray, charuco_board)
         # frame = aruco.drawDetectedCornersCharuco(frame, charucoCorners, charucoIds, (0,255,0))
-        retval, rvec, tvec = aruco.estimatePoseCharucoBoard(charucoCorners, charucoIds, Charucoboard, mtx, dist, rvec, tvec)  # posture estimation from a charuco board
+        retval, rvec, tvec = aruco.estimatePoseCharucoBoard(charucoCorners, charucoIds, charuco_board, mtx, dist, rvec, tvec)  # posture estimation from a charuco board
 
         # if pose estimation is successful, render the chessboard and chess pieces
         if retval:
@@ -249,7 +248,7 @@ def track(frame):
 
     # if at least one hand is found
     if found:
-        detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=MAX_PINCH_DIST, draw=True) # pinch_pt: the pixel coordinates of the pinch point
+        detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=max_pinch_dist, draw=True) # pinch_pt: the pixel coordinates of the pinch point
         if detected:
             # figure our which chessboard scquare this is the closest to.
             # now feed in the chess board frame frame and figure our the coordinates of each tile
