@@ -196,7 +196,7 @@ def track(frame):
     # From charuco board to 3D rendering
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=aruco_params)  # First, detect markers
-    aruco.refineDetectedMarkers
+    aruco.refineDetectedMarkers(gray, charuco_board, corners, ids, rejectedImgPoints)
     
     all_corners = np.array([])
     all_ids = np.array([])
