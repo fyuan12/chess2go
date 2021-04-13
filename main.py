@@ -36,6 +36,8 @@ aruco_x = 6.5
 aruco_y = -10
 aruco_z = 0
 c_d = 1
+pre_pos = [90,90,0]
+post_pos = [0,0,0]
 last_corners = []
 
 # Set the needed parameters to find the refined corners
@@ -50,13 +52,6 @@ square_length = 1
 marker_length = square_length*0.7
 aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
 
-# Create constants to be passed into OpenCV and Aruco methods
-Charucoboard = aruco.CharucoBoard_create(
-        squaresX=col_count,
-        squaresY=row_count,
-        squareLength=square_length,
-        markerLength=marker_length,
-        dictionary=aruco_dict)
 arucoParams = aruco.DetectorParameters_create()
 rvec = np.array([])
 tvec = np.array([])
@@ -199,6 +194,8 @@ def track(frame):
     global start_pinch
     global rvec
     global tvec
+    global pre_pos
+    global post_pos
 
     hand_frame = frame.copy()
     found, hand_frame = tracker.find_hands(hand_frame, selfie=False, draw=False)
@@ -275,12 +272,11 @@ def track(frame):
             glPushMatrix()
             glLoadMatrixd(view_matrix)
             
+
+            glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
             glRotate(90, 1, 0, 0)
             glRotate(90, 0, 1, 0)
-            glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
             
-        
-
             tile.render()
             glPopMatrix()
 
@@ -290,10 +286,9 @@ def track(frame):
             glPushMatrix()
             glLoadMatrixd(view_matrix)
             
+            glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
             glRotate(90, 1, 0, 0)
             glRotate(90, 0, 1, 0)
-            glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
-            
             
             piece.render()
             glPopMatrix()
@@ -377,6 +372,8 @@ def key_pressed(key, x, y):
     global aruco_z
     global c_d
     global board
+    global pre_pos
+    global post_pos
 
     key = key.decode("utf-8") 
     if key == "q":
@@ -453,7 +450,24 @@ def key_pressed(key, x, y):
         print(f"ind: {ind}")
         board.set_active_tile(ind)
         print(f"pos: {str(board.board)}")
-
+    elif key == '1':
+        pre_pos[0] -= 30
+        print(f"pre_pos: {pre_pos}")
+    elif key == '4':
+        pre_pos[0] += 30
+        print(f"pre_pos: {pre_pos}")
+    elif key == '2':
+        pre_pos[1] -= 30
+        print(f"pre_pos: {pre_pos}")
+    elif key == '5':
+        pre_pos[1] += 30
+        print(f"pre_pos: {pre_pos}")
+    elif key == '3':
+        pre_pos[2] -= 30
+        print(f"pre_pos: {pre_pos}")
+    elif key == '6':
+        pre_pos[2] += 30
+        print(f"pre_pos: {pre_pos}")
 
 
 def run():
