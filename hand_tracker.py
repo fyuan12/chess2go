@@ -26,7 +26,7 @@ class HandTracker():
         self.false_counter = 0 # used to avoid false negatives
 
     def find_hands(self, img, mirror=True, draw=True):
-        # Selfie: Flip the image horizontally for a later selfie-view displayconvert
+        # mirror: Flip the image horizontally for a later selfie-view displayconvert
         if mirror:
             img = cv.flip(img, 1)
         img_rgb = cv.cvtColor(img, cv.COLOR_BGR2RGB)
