@@ -45,17 +45,12 @@ zeroZone = (-1, -1)
 criteria = (cv.TERM_CRITERIA_EPS + cv.TermCriteria_COUNT, 40, 0.001)
 
 # Charuco board variables
-row_count = 8
-col_count = 8
-square_length = aruco_d
-marker_length = square_length*0.7
 aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
-
 charuco_board = aruco.CharucoBoard_create(
-        squaresX=col_count,
-        squaresY=row_count,
-        squareLength=square_length,
-        markerLength=marker_length,
+        squaresX=8,
+        squaresY=8,
+        squareLength=aruco_d,
+        markerLength=square_length*0.7,
         dictionary=aruco_dict)
 aruco_params = aruco.DetectorParameters_create()
 
@@ -201,15 +196,20 @@ def track(frame):
     # From charuco board to 3D rendering
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=aruco_params)  # First, detect markers
-    aruco.refineDetectedMarkers(gray, charuco_board, corners, ids, rejectedImgPoints)
-
+    aruco.refineDetectedMarkers
+    
+    all_corners = np.array([])
+    all_ids = np.array([])
     if np.all(ids is not None): # if there is at least one marker detected
-        charucoretval, charucoCorners, charucoIds = aruco.interpolateCornersCharuco(corners, ids, gray, charuco_board)
+        c_retval, c_corners, c_ids = aruco.interpolateCornersCharuco(corners, ids, gray, charuco_board)
         # frame = aruco.drawDetectedCornersCharuco(frame, charucoCorners, charucoIds, (0,255,0))
-        retval, rvec, tvec = aruco.estimatePoseCharucoBoard(charucoCorners, charucoIds, charuco_board, mtx, dist, rvec, tvec)  # posture estimation from a charuco board
+        retval, rvec, tvec = aruco.estimatePoseCharucoBoard(c_corners, c_ids, charuco_board, mtx, dist, rvec, tvec)  # posture estimation from a charuco board
 
         # if pose estimation is successful, render the chessboard and chess pieces
         if retval:
+            all_corners = all_corners.append(c_corners)
+            all_ids = all_ids.append(c_ids)
+
             rmtx = cv.Rodrigues(rvec)[0]
             view_matrix = np.array([[rmtx[0][0],rmtx[0][1],rmtx[0][2],tvec[0,0]],
                                     [rmtx[1][0],rmtx[1][1],rmtx[1][2],tvec[1,0]],
@@ -242,6 +242,9 @@ def track(frame):
                 piece.render()
                 glPopMatrix()
 
+
+    # print(all_corners.shape)
+    # print(all_corners)
     # detect pinch/unpinch actions
     hand_frame = frame.copy()
     found, hand_frame = tracker.find_hands(hand_frame, selfie=False, draw=False)
