@@ -267,7 +267,7 @@ def track(frame):
             print('A PINCH is detected:', pinch_pt) # the x,y coordinate of the pinch point
         elif detected == PinchState.UNPINCH:
             # unpinch is detected
-            print('An UNPINCH is detected.', pint_pt)
+            print('An UNPINCH is detected.', pinch_pt)
         else:
             print('UNSURE')
 
@@ -293,14 +293,14 @@ def track(frame):
         if valid_coords:
             letter_index = int(coords[0])
             number_index = int(coords[1])
-            index = int(coords[0])*8+int(coords[1])
+            index = int(coords[0])+int(coords[1])*8
 
-            if detected= == PinchState.PINCH:
+            if detected == PinchState.PINCH:
                 board.set_active_tile(index)
                 pinched_piece = "{}{}".format(board.LETTERS[letter_index], board.NUMBERS[number_index])
                 print("Select piece:", pinched_piece)
             
-            elif detected == PinchState.UNSURE and pinch_piece is not None:
+            elif detected == PinchState.UNSURE and pinched_piece is not None:
                 # board.set_active_tile(index)
                 pass
             
