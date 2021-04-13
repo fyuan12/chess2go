@@ -250,7 +250,7 @@ def track(frame):
 
     # if at least one hand is found
     if found:
-        detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=max_pinch_dist, draw=True) # pinch_pt: the pixel coordinates of the pinch point
+        detected, pinch_pt = tracker.get_pinch(hand_frame, min_dist=max_dist=max_pinch_dist, draw=True) # pinch_pt: the pixel coordinates of the pinch point
         if detected:
             # figure our which chessboard scquare this is the closest to.
             # now feed in the chess board frame frame and figure our the coordinates of each tile
