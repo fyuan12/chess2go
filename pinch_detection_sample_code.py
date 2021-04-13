@@ -23,7 +23,7 @@ def main():
     while True:
         ret, img = cap.read()
 
-        found, img = tracker.find_hands(img, selfie=True, draw=False)
+        found, img = tracker.find_hands(img, mirror=True, draw=False)
         # if at least one hand is found
         if found:
             detected, pinch_pt = tracker.get_pinch(img, max_dist=MAX_PINCH_DIST, draw=True)
