@@ -16,9 +16,9 @@ from hand_tracker import HandTracker
 
 # Update per computer
 cap = cv.VideoCapture(1)
-# _, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
-with np.load('cap_int_params.npz') as data:
-    mtx, dist = data['arr_0'], data['arr_1']
+_, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
+# with np.load('cap_int_params.npz') as data:
+#     mtx, dist = data['arr_0'], data['arr_1']
 
 # Hand tracking variables
 max_pinch_dist = 100
@@ -39,9 +39,9 @@ thread_quit = 0
 current_view_matrix = np.array([])
 new_frame = np.array([])
 zoom = -16.5
-aruco_d = 1
-aruco_x = 6.5
-aruco_y = -10
+aruco_d = 2.08
+aruco_x = 14.5
+aruco_y = 1.5
 aruco_z = 0
 c_d = 1
 
@@ -52,12 +52,7 @@ criteria = (cv.TERM_CRITERIA_EPS + cv.TermCriteria_COUNT, 40, 0.001)
 
 # Charuco board variables
 aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_250)
-charuco_board = aruco.CharucoBoard_create(
-        squaresX=8,
-        squaresY=8,
-        squareLength=aruco_d,
-        markerLength=aruco_d*0.7,
-        dictionary=aruco_dict)
+
 aruco_params = aruco.DetectorParameters_create()
 
 rvec = np.array([])
@@ -200,9 +195,15 @@ def track(frame):
     hand_frame = frame.copy()
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=aruco_params)  # First, detect markers
+    charuco_board = aruco.CharucoBoard_create(
+        squaresX=8,
+        squaresY=8,
+        squareLength=aruco_d,
+        markerLength=aruco_d*0.7,
+        dictionary=aruco_dict)
     aruco.refineDetectedMarkers(gray, charuco_board, corners, ids, rejectedImgPoints)
     
-    all_corners = np.array([])
+    all_corners = np.array([[None]*49])
     all_ids = np.array([])
     if np.all(ids is not None): # if there is at least one marker detected
         c_retval, c_corners, c_ids = aruco.interpolateCornersCharuco(corners, ids, gray, charuco_board)
@@ -211,9 +212,9 @@ def track(frame):
 
         # if pose estimation is successful, render the chessboard and chess pieces
         if retval:
-            if all_corners.shape[0] == 98:
-                all_corners = np.append(all_corners, c_corners)
-                all_ids = np.append(all_ids, c_ids)
+            c_corners = np.reshape(np.array(c_corners), (-1, 2))
+            for i in len(c_corners):
+                all_corners[all_ids[i]] = c_corners[i]
     
             rmtx = cv.Rodrigues(rvec)[0]
             view_matrix = np.array([[rmtx[0][0],rmtx[0][1],rmtx[0][2],tvec[0,0]],
@@ -228,9 +229,9 @@ def track(frame):
                 glPushMatrix()
                 glLoadMatrixd(view_matrix)
                 
+                glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
                 glRotate(90, 1, 0, 0)
                 glRotate(90, 0, 1, 0)
-                glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
                 
                 tile.render()
                 glPopMatrix()
@@ -240,9 +241,9 @@ def track(frame):
                 glPushMatrix()
                 glLoadMatrixd(view_matrix)
                 
+                glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
                 glRotate(90, 1, 0, 0)
                 glRotate(90, 0, 1, 0)
-                glTranslate(aruco_x + c_d*dx*-1, aruco_y + c_d*dy, aruco_z)
                 
                 piece.render()
                 glPopMatrix()
@@ -262,8 +263,15 @@ def track(frame):
             # print('A pinch is not detected.')
 
     # with pinch point coordinate and all corners coordinates, generate the tile that the pinch point is in
-    all_corners = np.reshape(all_corners, (-1, 2))
-    print(all_corners)
+    chpts = np.array([[1,1],
+                  [1,7],
+                  [7,7],
+                  [7,1]])
+    pts = all_corners[np.array([6,0,42,48])]
+    if all(pts) and found:
+        m = cv2.getPerspectiveTransform(pts, chpts)
+        pinch_pt = np.array([pinch_pt[0], pinch_pt[1], 1])
+        print(m @ pinch_pt)
 
     # calculate and output fps
     c_time = time.time()
@@ -301,9 +309,15 @@ def draw_gl_scene():
     glLoadIdentity()
 
     frame = new_frame.copy()
+    #     # undistort
+    dst = cv.undistort(frame, mtx, dist)
+
+    # crop the image
+    x,y,w,h = roi
+    dst = dst[y:y+h, x:x+w]
     glDisable(GL_DEPTH_TEST)
     # convert image to OpenGL texture format
-    tx_image = cv.flip(frame, 0)
+    tx_image = cv.flip(dst, 0)
     tx_image = Image.fromarray(tx_image)
     ix = tx_image.size[0]
     iy = tx_image.size[1]
