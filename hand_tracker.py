@@ -57,7 +57,7 @@ class HandTracker():
                 lm_list.append([i, cx, cy])
         return lm_list
 
-    def get_pinch(self, img, max_dist, draw=True):
+    def get_pinch(self, img, min_dist=0, max_dist, draw=True):
         lmList = self._get_coordinates(img)
         dist = 0.0
         if len(lmList) != 0:
@@ -67,11 +67,14 @@ class HandTracker():
             dist = math.hypot(x2 - x1, y2 - y1) # pixel distance between thumb and index
             
             # if it's a pinch draw the pinch
-            if dist < max_dist:
+            if dist < max_dist and dist >= min_dist:
                 cv.circle(img, (x1, y1), 15, (255, 0, 255), cv.FILLED)
                 cv.circle(img, (x2, y2), 15, (255, 0, 255), cv.FILLED)
                 cv.line(img, (x1, y1), (x2, y2), (255, 0, 255), 3)
                 cv.circle(img, (cx, cy), 15, (255, 0, 255), cv.FILLED)
+                self.false_counter = 0
+                self.pinch_state = True
+            elif dist < min_dist:
                 self.false_counter = 0
                 self.pinch_state = True
             else:
