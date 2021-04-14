@@ -261,15 +261,7 @@ def track(frame):
 
     # if at least one hand is found
     if found:
-        detected, pinch_pt = tracker.get_pinch(hand_frame, max_dist=max_pinch_dist, min_dist=min_pinch_dist, draw=True) # pinch_pt: the pixel coordinates of the pinch point
-        if detected == PinchState.PINCH:
-            # a pinch motino is detected
-            print('A PINCH is detected:', pinch_pt) # the x,y coordinate of the pinch point
-        elif detected == PinchState.UNPINCH:
-            # unpinch is detected
-            print('An UNPINCH is detected.', pinch_pt)
-        else:
-            print('UNSURE')
+        pinch_state, pinch_pt = tracker.get_pinch(hand_frame, max_dist=max_pinch_dist, min_dist=min_pinch_dist, draw=True) # pinch_pt: the pixel coordinates of the pinch point
 
     # with pinch point coordinate and all corners coordinates, generate the tile that the pinch point is in
     chpts = np.array([[1,1],
@@ -294,16 +286,12 @@ def track(frame):
             number_index = int(coords[1])
             index = int(coords[0])+int(coords[1])*8
 
-            if detected == PinchState.PINCH and pinched_piece is None:
+            if pinch_state == PinchState.PINCH and pinched_piece is None:
                 board.set_active_tile(index)
                 pinched_piece = "{}{}".format(board.LETTERS[letter_index], board.NUMBERS[number_index])
                 print("Select piece:", pinched_piece)
-            
-            elif detected == PinchState.UNSURE and pinched_piece is not None:
-                # board.set_active_tile(index)
-                pass
-            
-            elif detected == PinchState.UNPINCH and pinched_piece is not None:
+
+            elif pinch_state == PinchState.UNPINCH and pinched_piece is not None:
                 board.set_active_tile(index)
                 # make the move
                 move_str = "{}{}{}".format(pinched_piece, board.LETTERS[letter_index], board.NUMBERS[number_index])

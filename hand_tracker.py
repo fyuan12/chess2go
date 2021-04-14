@@ -71,19 +71,22 @@ class HandTracker():
             x1, y1 = lmList[4][1], lmList[4][2]
             x2, y2 = lmList[8][1], lmList[8][2]
             cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+            pinch_pt = (cx,cy)
             dist = math.hypot(x2 - x1, y2 - y1) # pixel distance between thumb and index
             
             if dist < max_dist:
                 # if it's a pinch draw the pinch
                 # self.true_counter += 1
-                self.false_counter = 0
                 if draw:
                     cv.circle(img, (x1, y1), 15, (255, 0, 255), cv.FILLED)
                     cv.circle(img, (x2, y2), 15, (255, 0, 255), cv.FILLED)
                     cv.line(img, (x1, y1), (x2, y2), (255, 0, 255), 3)
                     cv.circle(img, (cx, cy), 15, (255, 0, 255), cv.FILLED)
+                
+                self.false_counter = 0
                 if dist < min_dist:
                     self.pinch_state = PinchState.PINCH
+                    print('A PINCH is detected: ', pinch_pt) # the x,y coordinate of the pinch point
                 else:
                     self.pinch_state = PinchState.UNSURE
             else:
@@ -93,7 +96,8 @@ class HandTracker():
                 # or an unpinch is detected
                 if self.false_counter >= 5:
                     self.pinch_state = PinchState.UNPINCH
-            return self.pinch_state, (cx, cy)
+                    print('An UNPINCH is detected.', pinch_pt)
+            return self.pinch_state, pinch_pt
 
 def main():
     p_time = 0
