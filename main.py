@@ -16,8 +16,8 @@ from hand_tracker import HandTracker, PinchState
 
 # Update per computer
 cap = cv.VideoCapture(1)
-_, mtx, dist, _, _ = pickle.load(open("my_camera_calibration.p", "rb"))
-# with np.load('cap_int_params.npz') as data:
+_, mtx, dist, _, _ = pickle.load(open("camera_params/my_camera_calibration.p", "rb"))
+# with np.load('camera_params/cap_int_params.npz') as data:
 #     mtx, dist = data['arr_0'], data['arr_1']
 
 # Hand tracking variables
