@@ -1,4 +1,4 @@
-# Chess2Go (An Interactive Augmented Reality Chess Game)
+# Chess2Go (An Interactive AR Chess Game)
 
 ## Intsallation Guide
 1. Make sure your OpenCV was installed using `pip install opencv-contrib-python`
